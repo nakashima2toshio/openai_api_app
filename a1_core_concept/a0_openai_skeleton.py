@@ -2,10 +2,25 @@
 # ----------------------------------------
 # サンプルプログラム作成用のスケルトン
 # ----------------------------------------
+import os
+import sys
+# a0_common_helper が同じリポジトリ内の上位ディレクトリにあるため、
+# Python のモジュール検索パスに親ディレクトリを追加する
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+)
+
+from a0_common_helper.helper import (
+    init_page,
+    init_messages,
+    select_model,
+    sanitize_key,
+    get_default_messages,
+    extract_text_from_response, append_user_message,
+)
+
 from openai import OpenAI
 from openai.types.responses import EasyInputMessageParam
-from a0_common_helper.helper import init_page, init_messages, select_model, sanitize_key, get_default_messages, extract_text_from_response
-
 # --- インポート直後に１度だけ実行する ---
 import streamlit as st
 st.set_page_config(
@@ -23,6 +38,7 @@ def responses_create_sample(demo_name: str = "responses_create_sample"):
     st.write("選択したモデル:", model)
 
     safe = sanitize_key(demo_name)
+    st.write("(Q-例)OpenAI-APIのresponses.parseの引数：toolsの説明をしなさい。")
     with st.form(key=f"responses_form_{safe}"):
         user_input = st.text_area("ここにテキストを入力してください:", height=75)
         submitted = st.form_submit_button("送信")
@@ -35,8 +51,8 @@ def responses_create_sample(demo_name: str = "responses_create_sample"):
             EasyInputMessageParam(role="user", content=user_input)
         )
         client = OpenAI()
-        res = client.responses.create(model=model, input=messages)
-        for i, txt in enumerate(extract_text_from_response(res), 1):
+        response = client.responses.create(model=model, input=messages)
+        for i, txt in enumerate(extract_text_from_response(response), 1):
             st.code(txt)
 
         with st.form(key=f"responses_next_{safe}"):
@@ -55,7 +71,7 @@ def sample2(demo_name: str = "sample2"):
 def main() -> None:
     init_page("skeleton")
     page_funcs = {
-        "OpenAI-API-Responses(One Shot)": responses_create_sample,
+        "OpenAI-API Responses(One Shot)": responses_create_sample,
         "sample2": sample2,
     }
     demo_name = st.sidebar.radio("デモを選択", list(page_funcs.keys()))

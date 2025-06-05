@@ -19,11 +19,27 @@
 # 01_07  Computer Use Tool Param
 # ----------------------------------------
 import os
+import sys
+# a0_common_helper が同じリポジトリ内の上位ディレクトリにあるため、
+# Python のモジュール検索パスに親ディレクトリを追加する
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+)
+
 import json
 import base64
 import glob
 import requests
 import pandas as pd
+
+from a0_common_helper.helper import (
+    init_page,
+    init_messages,
+    select_model,
+    sanitize_key,
+    get_default_messages,
+    extract_text_from_response,
+)
 
 from openai import OpenAI
 from openai.types.responses.web_search_tool_param import UserLocation, WebSearchToolParam
@@ -37,7 +53,6 @@ from a0_common_helper.helper import init_page, init_messages, select_model, sani
     get_default_messages
 
 import streamlit as st
-
 # --- インポート直後に１度だけ実行する ---
 st.set_page_config(
     page_title="ChatGPT Responses API",
@@ -56,9 +71,9 @@ image_path_sample = (
 # ==================================================
 def responses_sample(demo_name: str = "01_01_responses_One_Shot"):
     init_messages(demo_name)
-    st.write(f"# {demo_name}")
     model = select_model(demo_name)
     st.write("選択したモデル:", model)
+    st.write("(Q-例:OpenaiのAPIで、responses.createを説明しなさい。")
 
     safe = sanitize_key(demo_name)
     with st.form(key=f"responses_form_{safe}"):
@@ -88,6 +103,7 @@ def responses_memory_sample(demo_name: str = "01_011_responses_memory"):
     st.write(f"# {demo_name}")
     model = select_model(demo_name)
     st.write("選択したモデル:", model)
+    st.write("(Q-例:OpenaiのAPIで、responses.parseを説明しなさい。")
 
     messages = get_default_messages()
     if "responses_memory_history" not in st.session_state:
@@ -116,7 +132,7 @@ def responses_memory_sample(demo_name: str = "01_011_responses_memory"):
             st.session_state.responses_memory_history.append(EasyInputMessageParam(role="assistant", content=txt))
         st.rerun()
 
-    if st.button("会話履歴クリア", key=f"memory_clear_{safe}"):
+    if st.sidebar.button("会話履歴クリア", key=f"memory_clear_{safe}"):
         st.session_state.responses_memory_history = messages
         st.rerun()
 
@@ -127,6 +143,12 @@ def responses_01_02_passing_url(demo_name: str = "01_02_Image_URL"):
     init_messages(demo_name)
     model = select_model(demo_name)
     st.write("選択したモデル:", model)
+    st.write("(Q-例:このイメージを説明しなさい。")
+    st.image(
+        image_path_sample,
+        caption="このイメージは？",
+        # use_column_width=True,  # 画面幅にフィット
+    )
 
     safe = sanitize_key(demo_name)
     image_url = st.text_input("画像URLを入力してください", value=image_path_sample, key=f"img_url_{safe}")
@@ -163,7 +185,7 @@ def responses_01_021_base64_image(demo_name: str = "01_021_Image_Base64"):
     model = select_model(demo_name)
     st.write("選択したモデル:", model)
 
-    image_dir = "images/"
+    image_dir = "images"
     safe = sanitize_key(demo_name)
     files = sorted(
         glob.glob(f"{image_dir}/*.png") + glob.glob(f"{image_dir}/*.jpg") +
@@ -196,10 +218,13 @@ def responses_01_021_base64_image(demo_name: str = "01_021_Image_Base64"):
         st.subheader("出力テキスト:")
         st.write(getattr(res, "output_text", str(res)))
 
+        if st.sidebar.button("会話履歴クリア", key=f"memory_clear_{safe}"):
+            st.session_state.responses_memory_history = messages
+            st.rerun()
+
 # ==================================================
 # 01_03 構造化出力 (JSON Schema):responses.create
 # ==================================================
-
 # ------------- Pydantic モデル -------------
 class Event(BaseModel):
     name: str

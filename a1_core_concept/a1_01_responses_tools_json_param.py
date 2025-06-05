@@ -11,9 +11,23 @@
 # | `computer_use_tool_param`       | 仮想PC/ブラウザ環境をAIが操作するRPA機能。操作結果やスクリーンショットを取得できる。 |
 # | `structured_output_by_schema`   | モデル出力をユーザ定義JSONスキーマへ厳密整形し、機械可読な構造化データとして取得。    |
 # | `image_param`                   | Vision機能。画像＋質問を送り、画像内容を理解・回答させるサンプル。           |
+# 宿題：computer_use_tool_param()　未実装
 # --------------------------------------------------
 # デフォルトプロンプト
 # --------------------------------------------------
+import os
+import sys
+
+import json
+import base64
+import glob
+import requests
+import pandas as pd
+
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+)
+
 from openai import OpenAI
 from openai.types.responses.web_search_tool_param import UserLocation, WebSearchToolParam
 from openai.types.responses import EasyInputMessageParam, ResponseInputTextParam, ResponseInputImageParam, \
@@ -21,8 +35,21 @@ from openai.types.responses import EasyInputMessageParam, ResponseInputTextParam
     ComputerToolParam
 
 from pydantic import BaseModel, ValidationError
-from a0_common_helper.helper import init_page, init_messages, select_model, sanitize_key, extract_text_from_response, \
-    get_default_messages
+from a0_common_helper.helper import (
+    init_page,
+    init_messages,
+    select_model,
+    sanitize_key,
+    get_default_messages,
+    extract_text_from_response,
+)
+
+import streamlit as st
+# --- インポート直後に１度だけ実行する ---
+st.set_page_config(
+    page_title="ChatGPT Responses API",
+    page_icon="2025-5 Nakashima"
+)
 
 # サンプル画像 URL
 image_url = (
@@ -241,13 +268,41 @@ def image_param():
 
     print(resp.output_text)
 
-def main():
-    web_search_tool_param()
-    function_tool_param_by_schema()
-    file_search_tool_param()
-    computer_use_tool_param()
-    structured_output_by_schema()
-    image_param()
+
+def web_search_tool(demo_name=None):
+    pass
+
+def function_tool(demo_name=None):
+    pass
+
+def file_search_tool(demo_name=None):
+    pass
+
+def computer_use_tool(demo_name=None):
+    pass
+
+def structured_output(demo_name=None):
+    pass
+
+def image_vision(demo_name=None):
+    pass
+
+# ==================================================
+# メインルーティン
+# ==================================================
+def main() -> None:
+    init_page("core concept")
+    page_funcs = {
+        "01 web_search": web_search_tool,
+        "02 function_tool": function_tool,
+        "03  file_search": file_search_tool,
+        "04 computer_use_tool": computer_use_tool,
+        "05 構造化出力": structured_output,
+        "06 image_vision": image_vision,
+    }
+    demo_name = st.sidebar.radio("デモを選択", list(page_funcs.keys()))
+    st.session_state.current_demo = demo_name
+    page_funcs[demo_name](demo_name)
 
 if __name__ == "__main__":
     main()

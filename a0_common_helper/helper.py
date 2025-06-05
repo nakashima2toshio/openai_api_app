@@ -51,14 +51,13 @@ def get_default_messages() -> list[EasyInputMessageParam]:
     EasyInputMessageParam(role="assistant", content=assistant_text),
 ]
 
-def append_user_message(append_text, image_url=None):
+def append_user_message(append_text):
     messages = get_default_messages()
     messages = messages.append(
         EasyInputMessageParam(
             role="user",
             content=[
                 ResponseInputTextParam(type="input_text", text=append_text),
-                ResponseInputImageParam(type="input_image", image_url=image_url, detail="auto"),
             ],
         )
     )
