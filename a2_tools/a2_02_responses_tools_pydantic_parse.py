@@ -23,8 +23,8 @@
 
 # a2_02_responses_tools_pydantic_parse.py
 # ----------------------------------------------------
-# [サンプル01]
-# (01_01) 基本的な function_call の structured output
+# [サンプル01] toolsの使い方
+# (01_01) 基本的なfunction_callのstructured output
 # (01_02) 複数ツールの登録・複数関数呼び出し
 # (01_03) ユーザー独自の複雑な構造体（入れ子あり）
 # (01_04) Enum型や型安全なオプションパラメータ付き

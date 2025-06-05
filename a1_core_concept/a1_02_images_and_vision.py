@@ -49,10 +49,10 @@ def url_image_to_text(demo_name):
         submit_button = st.form_submit_button(label="送信")
 
     if submit_button and st.session_state.user_input:
-        res_text = client_responses_create_image_api(
-            selected_model,
-            input_text,
-            st.session_state.user_input
+        res_text = client.responses.create(
+            model = selected_model,
+            input = input_text,  #             st.session_state.user_input
+            imge = image_url
         )
         st_utils.display_response(res_text)
 
@@ -64,6 +64,7 @@ def encode_image_to_base64(image_path: str) -> str:
 
 
 def url_image_base64_to_text(demo_name):
+    client = OpenAI()
     selected_model = st_utils.config_model()
 
     # 画像フォルダー内のファイル列挙
@@ -97,8 +98,6 @@ def url_image_base64_to_text(demo_name):
     if st.button("解析する"):
         image_path = os.path.join(image_folder, selected_image_file)
         image_base64 = encode_image_to_base64(image_path)
-
-        client = OpenAI()
 
         # Pydantic モデルを用いて入力メッセージを構築
         message = EasyInputMessageParam(

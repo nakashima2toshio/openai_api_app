@@ -85,7 +85,7 @@ st_utils.init_page("Audio & Speech Demo")
 # ------------------------------------------------------------------
 def text_to_speech(_: str | None = None) -> None:
     # モデルとテキスト読み込み
-    model = st_utils.config_speech_model()
+    model = st_utils.select_speech_model()
     txt_file = DATA_DIR / "taketori_1.txt"
     if not txt_file.exists():
         st.error(f"{txt_file} が見つかりません")

@@ -6,6 +6,10 @@ import streamlit as st
 # -----------------------------------
 # Responses API で利用する型 (openai-python v1)
 # -----------------------------------
+from openai.types.responses import EasyInputMessageParam, ResponseInputTextParam, ResponseInputImageParam, \
+    ResponseTextConfigParam, ResponseFormatTextJSONSchemaConfigParam, FunctionToolParam, FileSearchToolParam, \
+    ComputerToolParam
+
 from openai.types.responses import (
     EasyInputMessageParam,      # 基本の入力メッセージ
     ResponseInputTextParam,     # 入力テキスト
@@ -92,7 +96,7 @@ def sanitize_key(name: str) -> str:
     return re.sub(r'[^0-9a-zA-Z_]', '_', name).lower()
 
 # --------------------------------------------------
-# 共通ヘルパ
+# Streamlit: 共通ヘルパ
 # --------------------------------------------------
 def init_page(init_text) -> None:
     # ページ共通ヘッダ
@@ -119,6 +123,13 @@ def select_model(demo_name: str = "設定") -> str:
     ]
     return st.sidebar.radio("Choose a model:", models, key=f"model_{safe}")
 
+# --------------------------------------------------
+def select_speech_model(demo_name: str = "speech_model") -> str:
+    safe = sanitize_key(demo_name)
+    models = [
+        "gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini",
+    ]
+    return st.sidebar.radio("Choose a model:", models, key=f"model_{safe}")
 # --------------------------------------------------
 def select_realtime_model(demo_name: str = "設定") -> str:
     safe = sanitize_key(demo_name)

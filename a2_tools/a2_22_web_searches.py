@@ -2,7 +2,7 @@
 # モデルが応答を生成する前に、Webで最新情報を検索できるようにします。
 # -----------------------------------------------------
 # [WebSearch]
-# ・モデル生成文中にネット記事の URL 引用が欲しい
+# ・モデル生成文中にネット情報の URL 引用が欲しい
 # -----------------------------------------------------
 from openai.types.responses.web_search_tool_param import UserLocation
 from openai import OpenAI

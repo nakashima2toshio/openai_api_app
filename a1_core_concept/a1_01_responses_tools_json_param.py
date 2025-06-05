@@ -1,5 +1,7 @@
 # streamlit run a1_01_responses_tools_json_param.py --server.port=8501
-#
+# --------------------------------------------------
+# [Menu] toolsパラメータの使い方 by schema
+# --------------------------------------------------
 # tools param 概要・一覧
 # | 関数                             | 目的・概要                                      |
 # | ------------------------------- | ---------------------------------------------- |
@@ -9,66 +11,30 @@
 # | `computer_use_tool_param`       | 仮想PC/ブラウザ環境をAIが操作するRPA機能。操作結果やスクリーンショットを取得できる。 |
 # | `structured_output_by_schema`   | モデル出力をユーザ定義JSONスキーマへ厳密整形し、機械可読な構造化データとして取得。    |
 # | `image_param`                   | Vision機能。画像＋質問を送り、画像内容を理解・回答させるサンプル。           |
-
-# [Menu] toolsパラメータの使い方 by schema --------------------------
-# web_search_tool_param()
-# function_tool_param_by_schema()
-# file_search_tool_param():
-# computer_use_tool_param()
-# structured_output_by_schema()
-# image_param()
-# ---------------------------------
-from openai import OpenAI
-from openai.types.responses import (
-    EasyInputMessageParam,                      # 基本の入力メッセージ
-    ResponseInputTextParam,                     # 入力テキスト
-    ResponseInputImageParam,                    # 入力画像
-    ResponseFormatTextJSONSchemaConfigParam,    # (old)Structured output 用
-    ResponseTextConfigParam,                    # Structured output 用
-    FunctionToolParam,                          # 関数呼び出しツール
-    FileSearchToolParam,                        # ファイル検索ツール
-    WebSearchToolParam,                         # Web 検索ツール
-    Response,                                   # 戻り値型
-)
 # --------------------------------------------------
 # デフォルトプロンプト
 # --------------------------------------------------
-# --- 共通ヘルパー --------------------
-def get_default_messages() -> list[EasyInputMessageParam]:
-    developer_text = (
-        "You are a strong developer and good at teaching software developer professionals "
-        "please provide an up-to-date, informed overview of the API by function, then show "
-        "cookbook programs for each, and explain the API options."
-        "あなたは強力な開発者でありソフトウェア開発者の専門家に教えるのが得意です。"
-        "OpenAIのAPIを機能別に最新かつ詳細に説明してください。"
-        "それぞれのAPIのサンプルプログラムを示しAPIのオプションについて説明してください。"
-    )
-    user_text = (
-        "Organize and identify the problem and list the issues. "
-        "Then, provide a solution procedure for the issues you have organized and identified, "
-        "and solve the problems/issues according to the solution procedures."
-        "不具合、問題を特定し、整理して箇条書きで列挙・説明してください。"
-        "次に、整理・特定した問題点の解決手順を示しなさい。"
-        "次に、解決手順に従って問題・課題を解決してください。"
-    )
-    assistant_text = "OpenAIのAPIを使用するには、公式openaiライブラリが便利です。回答は日本語で"
+from openai import OpenAI
+from openai.types.responses.web_search_tool_param import UserLocation, WebSearchToolParam
+from openai.types.responses import EasyInputMessageParam, ResponseInputTextParam, ResponseInputImageParam, \
+    ResponseTextConfigParam, ResponseFormatTextJSONSchemaConfigParam, FunctionToolParam, FileSearchToolParam, \
+    ComputerToolParam
 
-    return [
-        EasyInputMessageParam(role="developer", content=developer_text),
-        EasyInputMessageParam(role="user",      content=user_text),
-        EasyInputMessageParam(role="assistant", content=assistant_text),
-    ]
+from pydantic import BaseModel, ValidationError
+from a0_common_helper.helper import init_page, init_messages, select_model, sanitize_key, extract_text_from_response, \
+    get_default_messages
+
+# サンプル画像 URL
+image_url = (
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/"
+    "Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-"
+    "Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
+)
 
 # --------------------------------------------------
 # tools: web_search_tool_param
 # --------------------------------------------------
-def web_search_tool_param() -> str:
-    # サンプル画像 URL
-    image_url1 = (
-        "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/"
-        "Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-"
-        "Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
-    )
+def web_search_tool_param() -> None:
     ws_tool = WebSearchToolParam(
         type="web_search_preview",
         search_context_size="high"
@@ -83,7 +49,7 @@ def web_search_tool_param() -> str:
             role="user",
             content=[
                 ResponseInputTextParam(type="input_text", text=add_text),
-                ResponseInputImageParam(type="input_image", image_url=image_url1, detail="auto"),
+                ResponseInputImageParam(type="input_image", image_url=image_url, detail="auto"),
             ],
         )
     )
@@ -239,29 +205,13 @@ def structured_output_by_schema():
 # --------------------------------------------------
 # tools: Text 向けフォーマッタ —: ResponseTextConfigParam
 # --------------------------------------------------
-# ResponseTextConfigParam
 # ResponseTextConfigParam を使うと、区切り記号や文体などテキスト出力を細かく制御できます。
 # ただし現行 SDK では シンタックスシュガー 的位置づけであり、将来非推奨になる可能性があります。
-
-# --------------------------------------------------
-# tools: Image Parameter
-# --------------------------------------------------
-# サンプル画像 URL
-image_url = (
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/"
-    "Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-"
-    "Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
-)
 
 # --------------------------------------------------
 # tools: Image Parameter  ― 修正版
 # --------------------------------------------------
 def image_param():
-    image_url = (
-        "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/"
-        "Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-"
-        "Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
-    )
     # 画像 + テキストを 1 つの user メッセージとして送信
     client = OpenAI()
 

@@ -1,4 +1,4 @@
-# streamlit run a1_00_responses_create.py --server.port 8501
+# streamlit run a2_01_responses_parse.py --server.port 8501
 # port Check: lsof -i :5678
 # 推論が有効なモデルを使用してResponses APIに API リクエスト
 # OpenAI API: https://platform.openai.com/docs/api-reference/introduction

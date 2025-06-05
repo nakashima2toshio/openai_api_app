@@ -43,14 +43,13 @@ def get_current_weather(city: str, unit: str = "metric") -> dict:
     }
 
 def get_weekly_forecast(lat: float, lon: float, unit: str = "metric") -> list[dict]:
-    """
-    【無料プラン対応版】
-    緯度・経度を指定して「5日／3時間毎」の予報を取得し、
-    日付ごとに平均気温と代表的な天気を計算して返す。
-
-    Returns:
-      [{"date": "YYYY-MM-DD", "temp_avg": float, "weather": str}, ...]
-    """
+    # 【無料プラン対応版】---------------------------------------------------
+    # 緯度・経度を指定して「5日／3時間毎」の予報を取得し、
+    # 日付ごとに平均気温と代表的な天気を計算して返す。
+    #
+    # Returns:
+    #   [{"date": "YYYY-MM-DD", "temp_avg": float, "weather": str}, ...]
+    # --------------------------------------------------------------------
     api_key = os.getenv("OPENWEATHER_API_KEY")
     if not api_key:
         raise RuntimeError("環境変数 OPENWEATHER_API_KEY が設定されていません。")
