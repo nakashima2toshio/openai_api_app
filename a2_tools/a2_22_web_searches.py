@@ -4,6 +4,12 @@
 # [WebSearch]
 # ・モデル生成文中にネット情報の URL 引用が欲しい
 # -----------------------------------------------------
+import os
+import sys
+
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+)
 from openai.types.responses.web_search_tool_param import UserLocation
 from openai import OpenAI
 from openai.types.responses import(
@@ -12,13 +18,18 @@ from openai.types.responses import(
 from a0_common_helper.helper import init_page, select_model
 
 import streamlit as st
+# --- インポート直後に１度だけ実行する ---
+st.set_page_config(
+    page_title="ChatGPT Responses API",
+    page_icon="2025-5 Nakashima"
+)
 
-
-init_page("OpenA-API: Web Search")
-
+# --------------------------------------------
+#
+# --------------------------------------------
 def web_search_prev(demo_name):
     client = OpenAI()
-    selected_model = select_model()
+    model = select_model()
 
     if "user_input" not in st.session_state:
         st.session_state.user_input = ""
@@ -45,10 +56,31 @@ def web_search_prev(demo_name):
         )
 
         response = client.responses.create(
-            model=selected_model,
+            model=model,
             tools=[tool],
             input="明日の天気は?",
         )
         st.markdown("## 回答")
         st.write(response.output_text)
 
+def sample2():
+    pass
+
+# ==================================================
+# メインルーティン
+# ==================================================
+def main() -> None:
+    init_page("web searches")
+    page_funcs = {
+        "web_search_prev": web_search_prev,
+        "sample2": sample2,
+    }
+    demo_name = st.sidebar.radio("デモを選択", list(page_funcs.keys()))
+    st.session_state.current_demo = demo_name
+    page_funcs[demo_name](demo_name)
+
+if __name__ == "__main__":
+    main()
+
+# streamlit run a2_22_web_searches.py  --server.port=8503
+# pprint.pprint(response.model_dump())

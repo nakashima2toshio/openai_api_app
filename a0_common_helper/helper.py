@@ -24,7 +24,7 @@ from openai.types.responses import (
 )
 
 # --------------------------------------------------
-# デフォルトプロンプト
+# デフォルトプロンプト　（例）ソフトウェア開発用
 # --------------------------------------------------
 def get_default_messages() -> list[EasyInputMessageParam]:
     developer_text = (
@@ -86,6 +86,43 @@ def append_assistant_message(append_text):
         )
     )
     return messages
+
+# ------------------------------------------
+# https://github.com/openai/tiktoken/blob/main/README.md
+# !pip install tiktoken  # Byte pair encoding
+# pip install --upgrade tiktoken
+# ------------------------------------------
+# OpenAI APIで使える各モデルの「コンテキストウィンドウ」
+# （入力＋出力トークン合計の上限）はモデルにより大きく異なります。
+# トークン数を誤ると 400 エラー／高コストにつながるため、
+# 公式トークナイザ tiktoken で事前に文字列を計測・切り詰める実装が実務では必須です。
+# ------------------------------------------
+# 最新モデルのトークン上限（2025-06 時点）
+# モデル名	                        コンテキスト上限
+# GPT-4.1 / 4.1-mini / 4.1-nano	    1 000 000 tokens
+# reuters.com
+# GPT-4o （テキスト・マルチモーダル）	128 000 tokens
+# ------------------------------------------
+import tiktoken
+from typing import List
+
+def count_tokens(text: str, model: str = "gpt-4o") -> int:
+    # ------------------------------------------
+    # Return the number of tokens `text` occupies for the specified OpenAI model.
+    # ------------------------------------------
+    enc = tiktoken.encoding_for_model(model)
+    return len(enc.encode(text))
+
+def tail_from_tokens(text: str, max_tokens: int, model: str = "gpt-4o") -> str:
+    # ------------------------------------------
+    # Return the last `max_tokens` tokens of `text` as a decoded string.
+    # If the text is shorter, the original text is returned unchanged.
+    # ------------------------------------------
+    enc = tiktoken.encoding_for_model(model)
+    tokens: List[int] = enc.encode(text)
+    if len(tokens) <= max_tokens:
+        return text
+    return enc.decode(tokens[-max_tokens:])
 
 # --------------------------------------------------
 # ユーティリティ : Streamlit key 用に安全な文字列へ変換
@@ -164,3 +201,13 @@ def get_property(response: Response, property_name: str, default=None):
         return "\n".join(texts) if texts else default
     else:
         return getattr(response, property_name, default)
+
+# --------------------------------------
+# client.responses.parse 出力の解析
+# --------------------------------------
+# import pprint
+#
+# print(response.output_text)
+# print('----------------------------------\n')
+#
+# pprint.pprint(response.model_dump())

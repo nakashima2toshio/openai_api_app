@@ -38,7 +38,7 @@ def create_vector_store_and_upload(txt_path: str) -> str:
     vs = client.vector_stores.create(name="faq_store_jp")
     VS_ID = vs.id
 
-    # ❸ 一時ファイルを添付
+    # 一時ファイルを添付
     with open(txt_path, "rb") as f:
         file_obj = client.files.create(file=f, purpose="assistants")
     client.vector_stores.files.create(vector_store_id=VS_ID, file_id=file_obj.id)

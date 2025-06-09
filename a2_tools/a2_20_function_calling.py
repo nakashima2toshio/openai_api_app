@@ -30,7 +30,7 @@ def get_current_weather(city: str, unit: str = "metric") -> dict:
         f"http://api.openweathermap.org/data/2.5/weather"
         f"?q={city}&appid={api_key}&units={unit}"
     )
-# https:// api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_key}
+    # https:// api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_key}
     res = requests.get(url)
     res.raise_for_status()
     data = res.json()
@@ -46,7 +46,6 @@ def get_weekly_forecast(lat: float, lon: float, unit: str = "metric") -> list[di
     # 【無料プラン対応版】---------------------------------------------------
     # 緯度・経度を指定して「5日／3時間毎」の予報を取得し、
     # 日付ごとに平均気温と代表的な天気を計算して返す。
-    #
     # Returns:
     #   [{"date": "YYYY-MM-DD", "temp_avg": float, "weather": str}, ...]
     # --------------------------------------------------------------------

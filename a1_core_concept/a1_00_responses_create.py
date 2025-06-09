@@ -65,7 +65,19 @@ image_path_sample = (
     "Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-"
     "Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
 )
-
+# -------------------------------------------------
+# 超重要 raw_responseの構成
+# -------------------------------------------------
+# raw_response オブジェクトの構成
+# フィールド	    型	        説明
+# id	        str	        レスポンス固有 ID (resp_...)
+# object	    str	        "response" 固定値
+# created_at	float	    UNIX 時間 (秒)
+# model	        str	        使われたモデル名 (gpt-4o-mini など)
+# metadata	    dict	    任意のメタ情報（空が多い）
+# error	        dict|None	API エラー時のみ内容が入る
+# output	    list	    実体。message／web_search_call 等のエントリを順に保持
+# output_text	str	        一行で最終ユーザ向けテキスト（便利プロパティ）
 # ==================================================
 # 01_01 テキスト入出力 (One Shot):responses.create
 # ==================================================

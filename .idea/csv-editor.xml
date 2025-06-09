@@ -17,6 +17,20 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="/datasets/legal_qa.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/datasets/sciq_qa.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="/docs/01_openai_subtitle_url.csv">
           <value>
             <Attribute>

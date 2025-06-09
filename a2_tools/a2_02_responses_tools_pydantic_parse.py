@@ -26,6 +26,7 @@
 # [サンプル01] toolsの使い方
 # (01_01) 基本的なfunction_callのstructured output
 # (01_02) 複数ツールの登録・複数関数呼び出し
+# (01_21) 複数ツールの登録・複数関数呼び出し
 # (01_03) ユーザー独自の複雑な構造体（入れ子あり）
 # (01_04) Enum型や型安全なオプションパラメータ付き
 # (01_05) text_format引数で自然文のstructured outputを生成
@@ -44,12 +45,16 @@ from typing import List
 import requests
 import pprint
 from openai import OpenAI
+from openai.types.responses import EasyInputMessageParam, ResponseInputTextParam
 
 from pydantic import BaseModel
 from openai import pydantic_function_tool
 # from  openai.lib._tools import pydantic_function_tool
 
 from a0_common_helper.helper import append_user_message
+from a1_core_concept.a1_20__moderations import get_default_messages
+
+
 # ----------------------------------------------------
 # 01_01: 基本的な function_call の structured output
 # ----------------------------------------------------
@@ -112,9 +117,19 @@ def sample_01_01():
 # ----------------------------------------------------
 def sample_01_02():
     client = OpenAI()
+    messages = get_default_messages()
+    append_user_text = "東京の明日の天気と、AIの最新ニュースを教えて"
+    messages.append(
+        EasyInputMessageParam(
+            role="user",
+            content=[
+                ResponseInputTextParam(type="input_text", text=append_user_text),
+            ]
+        )
+    )
     response = client.responses.parse(
         model="gpt-4.1",
-        input=append_user_message("東京の明日の天気と、AIの最新ニュースを教えて"),
+        input=messages,
         tools=[
             pydantic_function_tool(WeatherRequest),
             pydantic_function_tool(NewsRequest)
@@ -130,11 +145,11 @@ def sample_01_02():
 # ----------------------------------------------------
 # 1. ツール（Function）のパラメータ定義 ------------------
 class CalculatorRequest(BaseModel):
-    """計算式を受け取るツール"""
+    # 計算式を受け取るツール"""
     exp: str  # 例: "2+2"
 
 class FAQSearchRequest(BaseModel):
-    """FAQ 検索クエリを受け取るツール"""
+    # FAQ 検索クエリを受け取るツール"""
     query: str
 
 # --------------------------------------
@@ -149,51 +164,62 @@ def calculator(exp: str) -> str:
 
 
 def faq_search(query: str) -> str:
-    """FAQ DB を検索する代わりにダミー回答を返す"""
+    # FAQ DB を検索する代わりにダミー回答を返す"""
     return f"FAQ回答: {query} ...（ここに検索結果が入る）"
+
 
 def sample_01_021():
     client = OpenAI()
-
+    messages = get_default_messages()
+    append_user_text = "2+2 はいくつですか？またはFAQから確認してください。"
+    messages.append(
+        EasyInputMessageParam(
+            role="user",
+            content=[
+                ResponseInputTextParam(type="input_text", text=append_user_text),
+            ]
+        )
+    )
     response = client.responses.parse(
         model="gpt-4.1",
-        input=append_user_message("2+2 はいくつですか？またはFAQから確認してください。"),
+        input=messages,
         tools=[
-            # name を明示的に与えて GPT 側の呼び出し名を python 側と一致させる
             pydantic_function_tool(CalculatorRequest, name="calculator"),
             pydantic_function_tool(FAQSearchRequest, name="faq_search"),
         ],
     )
 
     # --------------------------------------
-    # 5. GPT から返ってきた function_call を実行
+    # GPT から返ってきた function_call を実行
     # --------------------------------------
     for function_call in response.output:
         print("関数名:", function_call.name)
 
-        # Pydantic モデル → dict へ変換し、 **kwargs で Python 関数に渡す
         args = function_call.parsed_arguments
         print("引数:", args)
 
+        # 安全な型チェックとモデルへの変換
+        if isinstance(args, BaseModel):
+            args_dict = args.model_dump()
+        else:
+            if function_call.name == "calculator":
+                args_dict = CalculatorRequest.model_validate(args).model_dump()
+            elif function_call.name == "faq_search":
+                args_dict = FAQSearchRequest.model_validate(args).model_dump()
+            else:
+                print("未対応のツールが呼び出されました")
+                continue
+
         if function_call.name == "calculator":
-            result = calculator(**args.model_dump())  # ← ★ 修正 point
+            result = calculator(**args_dict)
             print("計算結果:", result)
 
         elif function_call.name == "faq_search":
-            result = faq_search(**args.model_dump())  # ← ★ 修正 point
+            result = faq_search(**args_dict)
             print("FAQ検索結果:", result)
 
         else:
             print("未対応のツールが呼び出されました")
-
-# ──────────────────────────────────────────────────────
-# ✨ 改修ポイント ✨
-# • function_call.parsed_arguments は Pydantic モデル → dict に変換する必要がある。
-#   - `.model_dump()` (Pydantic v2) もしくは `.dict()` (Pydantic v1)
-#   - 直接 ** 展開すると TypeError が発生した。ただし `.model_dump()` なら OK。
-# • pydantic_function_tool() に明示的に name="calculator" などを付与し、
-#   function_call.name とローカル関数の名前を一致させると判定がシンプル。
-
 
 # ----------------------------------------------------
 # (01_03) ユーザー独自の複雑な構造体（入れ子あり）
@@ -212,9 +238,19 @@ def sample_01_03():
         tasks: List[Task]
 
     client = OpenAI()
+    messages = get_default_messages()
+    append_user_text = "プロジェクト『AI開発』には「設計（明日まで）」「実装（来週まで）」というタスクがある"
+    messages.append(
+        EasyInputMessageParam(
+            role="user",
+            content=[
+                ResponseInputTextParam(type="input_text", text=append_user_text),
+            ]
+        )
+    )
     response = client.responses.parse(
         model="gpt-4.1",
-        input=append_user_message("プロジェクト『AI開発』には「設計（明日まで）」「実装（来週まで）」というタスクがある"),
+        input=messages,
         tools=[pydantic_function_tool(ProjectRequest)]
     )
 
@@ -241,9 +277,19 @@ def sample_01_04():
         unit: Unit
 
     client = OpenAI()
+    messages = get_default_messages()
+    append_user_text = "ニューヨークの明日の天気を華氏で教えて"
+    messages.append(
+        EasyInputMessageParam(
+            role="user",
+            content=[
+                ResponseInputTextParam(type="input_text", text=append_user_text),
+            ]
+        )
+    )
     response = client.responses.parse(
         model="gpt-4.1",
-        input=append_user_message("ニューヨークの明日の天気を華氏で教えて"),
+        input=messages,
         tools=[pydantic_function_tool(WeatherRequest)]
     )
 
@@ -265,9 +311,19 @@ class MathResponse(BaseModel):
 
 def sample_01_05():
     client = OpenAI()
+    messages = get_default_messages()
+    append_user_text = "8x + 31 = 2 を解いてください。途中計算も教えて"
+    messages.append(
+        EasyInputMessageParam(
+            role="developer",
+            content=[
+                ResponseInputTextParam(type="input_text", text=append_user_text),
+            ]
+        )
+    )
     response = client.responses.parse(
         model="gpt-4.1",
-        input=append_user_message("8x + 31 = 2 を解いてください。途中計算も教えて"),
+        input=messages,
         text_format=MathResponse,
     )
 
@@ -286,15 +342,24 @@ def sample_02_01():
     from pydantic import BaseModel
     from openai import OpenAI
 
-    client = OpenAI()
-
     class PersonInfo(BaseModel):
         name: str
         age: int
 
+    client = OpenAI()
+    messages = get_default_messages()
+    append_user_text = "彼女の名前は中島美咲で年齢は27歳です。"
+    messages.append(
+        EasyInputMessageParam(
+            role="developer",
+            content=[
+                ResponseInputTextParam(type="input_text", text=append_user_text),
+            ]
+        )
+    )
     response = client.responses.parse(
         model="gpt-4.1",
-        input=append_user_message("彼女の名前は中島美咲で年齢は27歳です。"),
+        input=messages,
         text_format=PersonInfo,
     )
 
@@ -346,7 +411,7 @@ def sample_02_011():
     client = OpenAI()
     response = client.responses.parse(
         model="gpt-4.1",
-        input=append_user_message(text),
+        input=text,
         text_format=ExtractedData,
     )
 
@@ -391,9 +456,19 @@ def sample_02_02():
         sort_by: str
         ascending: bool
 
+    messages = get_default_messages()
+    append_user_text = "ユーザーテーブルから年齢が20歳以上で東京在住の人を名前で昇順にソートして"
+    messages.append(
+        EasyInputMessageParam(
+            role="developer",
+            content=[
+                ResponseInputTextParam(type="input_text", text=append_user_text),
+            ]
+        )
+    )
     response = client.responses.parse(
         model="gpt-4.1",
-        input=append_user_message("ユーザーテーブルから年齢が20歳以上で東京在住の人を名前で昇順にソートして"),
+        input=messages,
         text_format=Query,
     )
 
@@ -501,8 +576,9 @@ def sample_02_05():
 
 def main():
     # sample_01_01()
-    # sample_01_02()
-    # sample_01_021()
+    sample_01_02()
+    print('-------------------------------')
+    sample_01_021()
     # sample_01_03()
     # sample_01_04()
     # sample_01_05()
@@ -511,7 +587,7 @@ def main():
     # sample_02_011()
     # sample_02_02()
     # sample_02_03()
-    sample_02_04()
+    # sample_02_04()
     # sample_02_05()
 
 if __name__ == '__main__':

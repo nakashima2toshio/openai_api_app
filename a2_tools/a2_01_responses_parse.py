@@ -19,6 +19,12 @@
 # 01_07  Computer Use Tool Param
 # ----------------------------------------
 import os
+import sys
+
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+)
+
 import json
 import base64
 import glob
@@ -26,10 +32,20 @@ import requests
 import pandas as pd
 
 from openai import OpenAI
-from openai.types.responses.web_search_tool_param import UserLocation, WebSearchToolParam
-from openai.types.responses import EasyInputMessageParam, ResponseInputTextParam, ResponseInputImageParam, \
-    ResponseTextConfigParam, ResponseFormatTextJSONSchemaConfigParam, FunctionToolParam, FileSearchToolParam, \
-    ComputerToolParam
+from openai.types.responses.web_search_tool_param import UserLocation
+
+from openai.types.responses import (
+    EasyInputMessageParam,      # 基本の入力メッセージ
+    ResponseInputTextParam,     # 入力テキスト
+    ResponseInputImageParam,    # 入力画像
+    ResponseFormatTextJSONSchemaConfigParam,  # Structured output 用
+    ResponseTextConfigParam,    # Structured output 用
+    FunctionToolParam,          # 関数呼び出しツール
+    FileSearchToolParam,        # ファイル検索ツール
+    WebSearchToolParam,         # Web 検索ツール
+    ComputerToolParam,          #
+    Response
+)
 
 from pydantic import BaseModel, ValidationError
 
@@ -51,6 +67,63 @@ image_path_sample = (
     "Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
 )
 
+
+# ==================================================
+# 01_01 テキスト入出力 (One Shot):responses.create
+# ==================================================
+def responses_parse_basic(demo_name: str = "01_00_responses_parse_basic"):
+    class UserInfo(BaseModel):
+        name: str
+        age: int
+        city: str
+
+    # 🔑 ルートを object にし、その中に配列フィールドを置く
+    class People(BaseModel):
+        users: list[UserInfo]
+
+    model = select_model(demo_name)
+    st.write("選択したモデル:", model)
+    client = OpenAI()
+
+    safe = sanitize_key(demo_name)
+    with st.form(key=f"responses_form_{safe}"):
+        user_input = st.text_area("ここにテキストを入力してください:", height=100)
+        submitted = st.form_submit_button("送信")
+
+    # プロンプト側で「users 配列で返して」と明示
+    messages = get_default_messages()
+    append_developer_text = "あなたは情報抽出アシスタントです。"
+    messages.append(
+        EasyInputMessageParam(
+            role="developer",
+            content=[
+                ResponseInputTextParam(type="input_text", text=append_developer_text),
+            ]
+        )
+    )
+    append_user_text = (
+        "私の名前は田中太郎、30歳、東京在住です。"
+        "私の名前は鈴木健太、28歳、大阪在住です。"
+    )
+    messages.append(
+        EasyInputMessageParam(
+            role="user",
+            content=[
+                ResponseInputTextParam(type="input_text", text=append_user_text),
+            ]
+        )
+    )
+
+    response = client.responses.parse(model=model, input=messages,
+                                      text_format=People  # ← ここは People (object) に変更
+                                      )
+
+    people: People = response.output_parsed
+    for p in people.users:
+        output = f"{p.name} / {p.age} / {p.city}"
+        st.write(output)
+
+
 # ==================================================
 # 01_01 テキスト入出力 (One Shot):responses.create
 # ==================================================
@@ -68,9 +141,7 @@ def responses_sample(demo_name: str = "01_01_responses_One_Shot"):
     messages = get_default_messages()
     if submitted and user_input:
         st.write("入力内容:", user_input)
-        messages.append(
-            EasyInputMessageParam(role="user", content=user_input)
-        )
+        messages.append(EasyInputMessageParam(role="user", content=user_input))
         client = OpenAI()
         res = client.responses.create(model=model, input=messages)
         for i, txt in enumerate(extract_text_from_response(res), 1):
@@ -80,8 +151,9 @@ def responses_sample(demo_name: str = "01_01_responses_One_Shot"):
             if st.form_submit_button("次の質問"):
                 st.rerun()
 
+
 # ==================================================
-# 01_011 テキスト入出力 + Memory: responses.create
+# 01_011 テキスト入出力 + history: responses.create
 # ==================================================
 def responses_memory_sample(demo_name: str = "01_011_responses_memory"):
     init_messages(demo_name)
@@ -120,6 +192,7 @@ def responses_memory_sample(demo_name: str = "01_011_responses_memory"):
         st.session_state.responses_memory_history = messages
         st.rerun()
 
+
 # ==================================================
 # 01_02 画像入力 (URL):responses.create , テキスト出力
 # ==================================================
@@ -135,7 +208,7 @@ def responses_01_02_passing_url(demo_name: str = "01_02_Image_URL"):
     with st.form(key=f"responses_img_form_{safe}"):
         submitted = st.form_submit_button("画像で質問")
 
-    messages= get_default_messages()
+    messages = get_default_messages()
     if submitted:
         client = OpenAI()
         messages.append(
@@ -150,12 +223,14 @@ def responses_01_02_passing_url(demo_name: str = "01_02_Image_URL"):
         res = client.responses.create(model=model, input=messages)
         st.write(getattr(res, "output_text", str(res)))
 
+
 # ==================================================
 # 01_021 画像入力 (base64):responses.create
 # ==================================================
 def encode_image(path: str) -> str:
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
+
 
 def responses_01_021_base64_image(demo_name: str = "01_021_Image_Base64"):
     init_messages(demo_name)
@@ -188,13 +263,15 @@ def responses_01_021_base64_image(demo_name: str = "01_021_Image_Base64"):
                 role="user",
                 content=[
                     ResponseInputTextParam(type="input_text", text="what's in this image?"),
-                    ResponseInputImageParam(type="input_image", image_url=f"data:image/jpeg;base64,{b64}", detail="auto"),
+                    ResponseInputImageParam(type="input_image", image_url=f"data:image/jpeg;base64,{b64}",
+                                            detail="auto"),
                 ],
             ),
         )
         res = OpenAI().responses.create(model=model, input=messages)
         st.subheader("出力テキスト:")
         st.write(getattr(res, "output_text", str(res)))
+
 
 # ==================================================
 # 01_03 構造化出力 (JSON Schema):responses.create
@@ -205,6 +282,7 @@ class Event(BaseModel):
     name: str
     date: str
     participants: list[str]
+
 
 # ------------- 共通ユーティリティ ----------------
 def responses_01_03_structured_output(demo_name: str = "01_03_Structured_Output") -> None:
@@ -217,7 +295,7 @@ def responses_01_03_structured_output(demo_name: str = "01_03_Structured_Output"
     # モデル選択
     model = st.selectbox(
         "モデルを選択",
-        ["gpt-4.1","o4-mini", "gpt-4o-2024-08-06", "gpt-4o-mini"],
+        ["gpt-4.1", "o4-mini", "gpt-4o-2024-08-06", "gpt-4o-mini"],
         key=f"struct_model_{safe}",
     )
 
@@ -232,13 +310,13 @@ def responses_01_03_structured_output(demo_name: str = "01_03_Structured_Output"
     if st.button("実行：イベント抽出", key=f"struct_btn_{safe}"):
         # 1. JSON Schema
         schema = {
-            "type": "object",
-            "properties": {
-                "name": {"type": "string"},
-                "date": {"type": "string"},
+            "type"                : "object",
+            "properties"          : {
+                "name"        : {"type": "string"},
+                "date"        : {"type": "string"},
                 "participants": {"type": "array", "items": {"type": "string"}},
             },
-            "required": ["name", "date", "participants"],
+            "required"            : ["name", "date", "participants"],
             "additionalProperties": False,
         }
 
@@ -272,6 +350,7 @@ def responses_01_03_structured_output(demo_name: str = "01_03_Structured_Output"
             st.error("出力のパースに失敗しました。モデル出力を確認してください。")
             st.exception(err)
 
+
 # ==================================================
 # 01_031 構造化出力 (JSON Schema):responses.parse
 # ==================================================
@@ -280,6 +359,7 @@ class Event2(BaseModel):
     name: str
     date: str
     participants: list[str]
+
 
 # --- 2. コア関数 ---
 def responses_01_031_structured_output(demo_name: str = "01_03_Structured_Output"):
@@ -316,12 +396,12 @@ def responses_01_031_structured_output(demo_name: str = "01_03_Structured_Output
         res = client.responses.parse(
             model=model,
             input=messages,
-            text_format=Event2,       # ← ここがポイント
+            text_format=Event2,  # ← ここがポイント
         )
 
         # 4. 返却は自動で Event2 に！
         try:
-            event: Event2 = res.output_parsed      # SDK が生成
+            event: Event2 = res.output_parsed  # SDK が生成
             st.subheader("抽出結果 (Pydantic)")
             st.json(event.model_dump())
             st.code(repr(event), language="python")
@@ -329,28 +409,31 @@ def responses_01_031_structured_output(demo_name: str = "01_03_Structured_Output
             st.error("Pydantic パースに失敗しました。")
             st.exception(ve)
 
+
 # ==================================================
 # 01_04 関数呼び出し (OpenWeatherMap): Function calling by use json-format
 # ==================================================
 function_tool_param: FunctionToolParam = {
-    "name": "get_current_weather",
+    "name"       : "get_current_weather",
     "description": "指定都市の現在の天気を返す",
-    "parameters": {
-        "type": "object",
+    "parameters" : {
+        "type"      : "object",
         "properties": {
             "location": {"type": "string"},
-            "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]},
+            "unit"    : {"type": "string", "enum": ["celsius", "fahrenheit"]},
         },
-        "required": ["location"],
+        "required"  : ["location"],
     },
-    "strict": True,
-    "type": "function",
+    "strict"     : True,
+    "type"       : "function",
 }
+
 
 def load_japanese_cities(csv_path: str) -> pd.DataFrame:
     df = pd.read_csv(csv_path)
     jp = df[df["country"] == "Japan"][["name", "lat", "lon"]].drop_duplicates()
     return jp.sort_values("name").reset_index(drop=True)
+
 
 def select_city(df_jp: pd.DataFrame, demo_name: str = ""):
     safe = sanitize_key(demo_name)
@@ -367,11 +450,12 @@ def get_current_weather_by_coords(lat: float, lon: float, unit: str = "metric"):
     res.raise_for_status()
     data = res.json()
     return {
-        "city": data["name"],
+        "city"       : data["name"],
         "temperature": data["main"]["temp"],
         "description": data["weather"][0]["description"],
-        "coord": data["coord"],
+        "coord"      : data["coord"],
     }
+
 
 def get_weekly_forecast(lat: float, lon: float, unit: str = "metric"):
     api_key = os.getenv("OPENWEATHER_API_KEY")
@@ -392,6 +476,7 @@ def get_weekly_forecast(lat: float, lon: float, unit: str = "metric"):
         for d, v in daily.items()
     ]
 
+
 def responses_01_04_function_calling(demo_name: str = "01_04_Function_Calling"):
     init_messages(demo_name)
     model = select_model(demo_name)
@@ -410,6 +495,7 @@ def responses_01_04_function_calling(demo_name: str = "01_04_Function_Calling"):
     for day in get_weekly_forecast(lat, lon):
         st.write(f"{day['date']} : {day['temp_avg']}℃, {day['weather']}")
 
+
 # --------------------------------------------------
 # 01_05　会話状態
 # --------------------------------------------------
@@ -417,6 +503,7 @@ def responses_01_05_conversation(demo_name: str = "01_05_Conversation"):
     init_messages(demo_name)
     model = select_model(demo_name)
     st.write("選択したモデル:", model)
+
 
 # --------------------------------------------------
 # 01_06 Built-in Tools (FileSearch / WebSearch)
@@ -478,6 +565,7 @@ def responses_01_06_tools_file_search(demo_name: str = "01_06_Extend_Model") -> 
             st.subheader("モデル回答")
             st.write(getattr(resp, "output_text", str(resp)))
 
+
 # --------------------------------------------------
 # 01_061 Built-in Tools (FileSearch)
 # 想定シナリオ
@@ -512,7 +600,8 @@ def responses_01_061_filesearch(demo_name: str = "01_061_filesearch") -> None:
         input="請求書の支払い期限は？",
         include=["file_search_call.results"]
     )
-    print(resp)
+    st.write(resp.output_text)
+
 
 # --------------------------------------------------
 # WebSearch
@@ -544,11 +633,11 @@ def responses_01_062_websearch(demo_name: str = "01_062_websearch") -> None:
     client = OpenAI()
     # ★ モデルは gpt-4o または gpt-4o-mini にしてください
     response = client.responses.create(
-        model="gpt-4o",  # ここを修正
+        model=model,  # ここを修正
         tools=[ws_tool],
         input="週末の東京の天気とおすすめの屋内アクティビティは？"
     )
-    print(response.output_text)
+    st.write(response.output_text)
 
 # --------------------------------------------------
 # computer_use_tool_param
@@ -582,7 +671,7 @@ def responses_01_07_computer_use_tool_param():
         tools=[cu_tool],
         input=messages,
         truncation="auto",  # MUST be "auto" for this model
-        stream=False,       # optional
+        stream=False,  # optional
         include=["computer_call_output.output.image_url"]  # block name: ComputerUseはこれ
     )
     import pprint
@@ -598,6 +687,7 @@ def responses_01_07_computer_use_tool_param():
             if hasattr(output, 'image_url'):
                 print('Image URL:', output.image_url)
 
+
 # responses_01_07_computer_use_tool_param()
 
 # ==================================================
@@ -607,22 +697,26 @@ def main() -> None:
     init_page("core concept")
 
     page_funcs = {
-        "01_01  Responsesサンプル(One Shot)": responses_sample,
-        "01_011 Responsesサンプル(Memory)": responses_memory_sample,
-        "01_02  画像入力(URL)": responses_01_02_passing_url,
-        "01_021 画像入力(base64)": responses_01_021_base64_image,
-        "01_03  構造化出力-responses": responses_01_03_structured_output,
-        "01_031 構造化出力-parse": responses_01_031_structured_output,
-        "01_04  関数 calling": responses_01_04_function_calling,
-        "01_05  会話状態": responses_01_05_conversation,
+        "01_00 responses.parseの基本"        : responses_parse_basic,
+        "01_01  Responsesサンプル(One Shot)" : responses_sample,
+        "01_011 Responsesサンプル(History)"   : responses_memory_sample,
+        "01_02  画像入力(URL)"               : responses_01_02_passing_url,
+        "01_021 画像入力(base64)"            : responses_01_021_base64_image,
+        "01_03  構造化出力-responses"        : responses_01_03_structured_output,
+        "01_031 構造化出力-parse"            : responses_01_031_structured_output,
+        "01_04  関数 calling"                : responses_01_04_function_calling,
+        "01_05  会話状態"                    : responses_01_05_conversation,
         "01_06  ツール:FileSearch, WebSearch": responses_01_06_tools_file_search,
-        "01_061 File Search": responses_01_061_filesearch,
-        "01_062 Web Search": responses_01_062_websearch,
-        "01_07  Computer Use Tool Param": responses_01_07_computer_use_tool_param,
+        "01_061 File Search"                 : responses_01_061_filesearch,
+        "01_062 Web Search"                  : responses_01_062_websearch,
+        "01_07  Computer Use Tool Param"     : responses_01_07_computer_use_tool_param,
     }
     demo_name = st.sidebar.radio("デモを選択", list(page_funcs.keys()))
     st.session_state.current_demo = demo_name
     page_funcs[demo_name](demo_name)
 
+
 if __name__ == "__main__":
     main()
+
+# streamlit run a2_01_responses_parse.py --server.port 8501
