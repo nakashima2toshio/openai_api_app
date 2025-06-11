@@ -25,6 +25,8 @@ import tempfile
 import json
 
 from rag_helper import select_model, init_page
+from utils.get_embedding import get_embedding
+from utils.get_data_df import get_data_df
 
 client = OpenAI()
 # set_page_config は一度だけ最初に実行する必要あり（最上位で1回のみ実施）
@@ -211,7 +213,7 @@ def embedding_09(demo_name=None):
 
 
 def main():
-    st_utils.init_messages()
+    init_messages()
     demos = {
         "(demo)embedding_demo": embedding_demo,
         "(1)Embedding取得-基本動作確認": embedding_basic_01,

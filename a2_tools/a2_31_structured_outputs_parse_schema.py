@@ -1,15 +1,17 @@
 # streamlit run a2_31_structured_outputs_parse_schema.py --server.port=8501
-# ----------------------------------------------------
-# 01_01: 基本的な function_call の structured output
-# ----------------------------------------------------
-import os
+#　[Menu]----------------------------------------
+# 01 イベント情報抽出": demo_event_extraction: client.responses.parse(model=model,input=text,text_format=EventInfo,)
+# 02 数学的思考ステップ": demo_math_reasoning: client.responses.parse(model=model,input=prompt,text_format=MathReasoning,)
+# 03 UIコンポーネント生成": demo_ui_generation: client.responses.parse(model=model, input=prompt, text_format=UIComponent)
+# 04 エンティティ抽出": demo_entity_extraction:
+# 05 条件分岐スキーマ": demo_conditional_schema:
+# 06 モデレーション＆拒否処理": demo_moderation:
+#　-------------------------------------------
 from typing import List, Union, Optional
 from pydantic import BaseModel, Field
 
 from openai import OpenAI
 # from  openai.lib._tools import pydantic_function_tool
-from openai import pydantic_function_tool
-
 import streamlit as st
 
 # -----------------------------------
@@ -66,11 +68,10 @@ def append_message(user_input_text):
 # ------------------------------------------------------
 from openai.types.responses import EasyInputMessageParam           # ← ここがポイント
 
-
 # ページ設定
 st.set_page_config(page_title="Structured Outputs Samples", page_icon="🗂️")
 # ------------------------------------------------------
-# 01_イベント情報抽出
+# 01_イベント情報抽出: demo_event_extraction
 # ------------------------------------------------------
 # 1) 取り出したい構造を Pydantic で宣言 --------------------
 class EventInfo(BaseModel):
@@ -83,11 +84,7 @@ class EventInfo(BaseModel):
 def create_structured_response(model: str, text: str) -> dict:
     # 指定モデルで text を解析し、EventInfo を dict で返す
     client = OpenAI()
-    response = client.responses.parse(
-        model=model,
-        input=text,          # 単一文字列を渡す
-        text_format=EventInfo,
-    )
+    response = client.responses.parse(model=model,input=text,text_format=EventInfo,)
 
     # output_parsed は text_format に渡した Pydantic モデルのインスタンス
     event_info: EventInfo = response.output_parsed
@@ -123,7 +120,7 @@ def demo_event_extraction() -> None:
         st.json(result)
 
 # --------------------------------------------------------------
-# 02. Math Reasoning Demo
+# 02. 数学的思考ステップ: demo_math_reasoning
 # --------------------------------------------------------------
 class Step(BaseModel):
     explanation: str = Field(..., description="このステップでの説明")
@@ -141,11 +138,7 @@ def parse_math_reasoning(model: str, expression: str) -> dict:
         "Return the reasoning as a JSON that matches the MathReasoning schema."
     )
     client = OpenAI()
-    resp = client.responses.parse(
-        model=model,
-        input=prompt,
-        text_format=MathReasoning,
-    )
+    resp = client.responses.parse(model=model,input=prompt,text_format=MathReasoning,)
     return resp.output_parsed.model_dump()
 
 def demo_math_reasoning() -> None:
@@ -165,7 +158,7 @@ def demo_math_reasoning() -> None:
         st.json(result)
 
 # --------------------------------------------------------------
-# 03. UI Component Demo
+# 03. UUIコンポーネント生成: demo_ui_generation
 # --------------------------------------------------------------
 class UIAttribute(BaseModel):
     name: str = Field(..., description="属性名")

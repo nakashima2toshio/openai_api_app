@@ -38,14 +38,23 @@ from a0_common_helper.helper import (
     select_model,
     sanitize_key,
     get_default_messages,
-    extract_text_from_response,
+    extract_text_from_response
 )
 
 from openai import OpenAI
 from openai.types.responses.web_search_tool_param import UserLocation, WebSearchToolParam
-from openai.types.responses import EasyInputMessageParam, ResponseInputTextParam, ResponseInputImageParam, \
-    ResponseTextConfigParam, ResponseFormatTextJSONSchemaConfigParam, FunctionToolParam, FileSearchToolParam, \
-    ComputerToolParam
+from openai.types.responses import (
+    EasyInputMessageParam,      # 基本の入力メッセージ
+    ResponseInputTextParam,     # 入力テキスト
+    ResponseInputImageParam,    # 入力画像
+    ResponseFormatTextJSONSchemaConfigParam,  # Structured output 用
+    ResponseTextConfigParam,    # Structured output 用
+    FunctionToolParam,          # 関数呼び出しツール
+    FileSearchToolParam,        # ファイル検索ツール
+    WebSearchToolParam,         # Web 検索ツール
+    ComputerToolParam,          #
+    Response
+)
 
 from pydantic import BaseModel, ValidationError
 
@@ -67,6 +76,7 @@ image_path_sample = (
 )
 # -------------------------------------------------
 # 超重要 raw_responseの構成
+# pprint.pprint(response.model_dump())
 # -------------------------------------------------
 # raw_response オブジェクトの構成
 # フィールド	    型	        説明

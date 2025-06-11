@@ -67,7 +67,6 @@ image_path_sample = (
     "Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
 )
 
-
 # ==================================================
 # 01_01 テキスト入出力 (One Shot):responses.create
 # ==================================================

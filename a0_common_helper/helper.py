@@ -20,6 +20,7 @@ from openai.types.responses import (
     FileSearchToolParam,        # ファイル検索ツール
     WebSearchToolParam,         # Web 検索ツール
     ComputerToolParam,          #
+    # ChatCompletionMessageParam,
     Response
 )
 
@@ -53,7 +54,7 @@ def get_default_messages() -> list[EasyInputMessageParam]:
 
 def append_user_message(append_text):
     messages = get_default_messages()
-    messages = messages.append(
+    return messages.append(
         EasyInputMessageParam(
             role="user",
             content=[
@@ -61,11 +62,10 @@ def append_user_message(append_text):
             ],
         )
     )
-    return messages
 
 def append_developer_message(append_text):
     messages = get_default_messages()
-    messages = messages.append(
+    messages.append(
         EasyInputMessageParam(
             role="developer",
             content=[
@@ -73,7 +73,6 @@ def append_developer_message(append_text):
             ]
         )
     )
-    return messages
 
 def append_assistant_message(append_text):
     messages = get_default_messages()
@@ -163,9 +162,18 @@ def select_model(demo_name: str = "設定") -> str:
 def select_speech_model(demo_name: str = "speech_model") -> str:
     safe = sanitize_key(demo_name)
     models = [
-        "gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini",
+        "gpt-4o-mini-tts", "tts-1", "tts-1-hd",
+        "gpt-4o-audio-preview", "gpt-4o-mini-audio-preview",
+        "o3-mini", "o4-mini",
     ]
     return st.sidebar.radio("Choose a model:", models, key=f"model_{safe}")
+
+# helper.py -----------------------------------------------------------
+def select_whisper_model(key: str = "whisper_model") -> str:
+    # Whisper / Transcribe / Translate で使えるモデルだけ
+    models = ["whisper-1", "gpt-4o-transcribe", "gpt-4o-mini-transcribe"]
+    return st.sidebar.radio("STT/翻訳モデル", models, key=key)
+
 # --------------------------------------------------
 def select_realtime_model(demo_name: str = "設定") -> str:
     safe = sanitize_key(demo_name)
@@ -202,12 +210,96 @@ def get_property(response: Response, property_name: str, default=None):
     else:
         return getattr(response, property_name, default)
 
+
+def get_default_speech_text_message() -> list[EasyInputMessageParam]:
+    # 双方向（音声⇄テキスト）会話用のデフォルトプロンプト。
+    # - system: 音声アシスタント全体方針
+    # - developer: フォーマット／デバッグ指示
+    # - user:    テスト用ユーザ発話
+    # - assistant: 期待される応答例
+
+    system_text = (
+        "You are ChatGPT, a warm and engaging Japanese voice assistant. "
+        "Respond in natural, concise Japanese within 15–20 seconds (≤2 sentences) unless asked to elaborate. "
+        "If the user's intent is unclear, ask a clarifying question. "
+        "Avoid disclosing private or sensitive data; remind users not to share secrets. "
+        "Comply with OpenAI content policy at all times."
+    )
+    developer_text = (
+        "### 開発者向け指示 ###\n"
+        "1. 返答は次の 3 段構成で: ①核心回答 ②要約 ③確認質問。\n"
+        "2. 返答末尾に ```json {\"voice\":\"alloy\",\"temperature\":0.6}``` の形式で "
+        "TTS オプションを echo してデバッグに利用。\n"
+        "3. 長い説明が必要な場合は 20 秒区切りで『続けても良いですか？』と尋ねる。\n"
+    )
+    user_text = (
+        "マイクテストです。あなたの自己紹介を 15 秒以内でお願いします。"
+    )
+    assistant_text = (
+        "こんにちは、あなたの AI アシスタントです。日々の疑問や学習をお手伝いします！\n"
+        "```json {\"voice\":\"alloy\",\"temperature\":0.6}```"
+    )
+
+    return [
+        EasyInputMessageParam(role="system",   content=system_text),
+        EasyInputMessageParam(role="developer", content=developer_text),
+        EasyInputMessageParam(role="user",      content=user_text),
+        EasyInputMessageParam(role="assistant", content=assistant_text),
+    ]
+
+
+# messages.append(
+#     EasyInputMessageParam(
+#         role="user",
+#         content=[
+#             ResponseInputTextParam(type="input_text", text="what's in this image?"),
+#             ResponseInputImageParam(type="input_image", image_url=f"data:image/jpeg;base64,{b64}", detail="auto"),
+#         ],
+#     ),
+# )
 # --------------------------------------
 # client.responses.parse 出力の解析
 # --------------------------------------
-# import pprint
-#
 # print(response.output_text)
-# print('----------------------------------\n')
-#
-# pprint.pprint(response.model_dump())
+
+
+import json
+
+# -------------------------------------------------
+def parse_translation_response(resp):
+    """
+    多態対応: Whisper Translation は
+      ① resp.text 属性 (Translation オブジェクト)
+      ② resp が str 型 (response_format="text")
+    ChatResponses API なら resp.output を解析
+    """
+    # --- Whisper Translation ---------------------------------------
+    if hasattr(resp, "text"):
+        raw = resp.text
+        return {"model": getattr(resp, "model", "whisper-1"),
+                "usage": getattr(resp, "usage", {}),
+                "raw_text": raw,
+                "parsed": json.loads(raw) if _maybe_json(raw) else {}}
+
+    if isinstance(resp, str):
+        return {"model": "whisper-1",
+                "usage": {},
+                "raw_text": resp,
+                "parsed": json.loads(resp) if _maybe_json(resp) else {}}
+
+    # --- Chat Responses (fallback) ---------------------------------
+    if hasattr(resp, "output"):
+        msg = next((o for o in resp.output if o.get("type") == "message"), None)
+        if msg:
+            c = next((c for c in msg["content"] if c.get("type") == "output_text"), {})
+            return {"model": resp.model,
+                    "usage": resp.usage,
+                    "raw_text": c.get("text", ""),
+                    "parsed": c.get("parsed", {})}
+    return None
+
+
+def _maybe_json(text: str) -> bool:
+    return text.strip().startswith("{") and text.strip().endswith("}")
+
+

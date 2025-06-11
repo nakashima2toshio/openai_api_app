@@ -27,7 +27,6 @@ st.set_page_config(
     page_title="ChatGPT API",
     page_icon="2025-5 Nakashima"
 )
-
 # -----------------------------------------------
 # テキスト入出力 (One Shot):responses.create
 # -----------------------------------------------
