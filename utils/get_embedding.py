@@ -2,14 +2,13 @@
 from openai import OpenAI
 
 client = OpenAI()
-def get_embedding(text, model="text-embedding-ada-002"):
-    text = text.replace("\n", " ")
-    # selected_embedding_model = config_embedding_model()
+def get_embedding(text: str, model: str = "text-embedding-3-small") -> list[float]:
+    # エンコーディング形式は？
     response = client.embeddings.create(
-        model=model,
-        input=[text],            # string or array
-        encoding_format="float",  # float or base64
-        dimensions = 1536
+        model="text-embedding-3-small",
+        input=text,
     )
-    embedding = response.data[0].embedding  # response['data'][0]['embedding']
-    return embedding
+    # レスポンスから埋め込みベクトル部分を抽出
+    embedding_vector = response["data"][0]["embedding"]
+    return embedding_vector
+

@@ -6,83 +6,31 @@
 # ④ RealtimeAPIで音声⇄音声（低遅延対話）
 # ⑤「Chained」型 VoiceAgent（制御＋ログ重視）
 # --------------------------------------
-# ① Text to Speech:音声生成API
-# --------------------------------------
-# （1）APIの仕様、役割、特徴
-# URL: POST https://api.openai.com/v1/audio/speech
-# 役割: テキストから音声を生成する（Text to Speech）
-# 特徴:
-# ・最大4096文字までのテキストを音声化。
-# ・対応モデル：tts-1, tts-1-hd, gpt-4o-mini-tts
-# ・音声の種類（voice）：alloy, ash, ballad, coral, echo, fable, onyx, nova, sage, shimmer, verse
-# ・音声速度や音声フォーマットの指定可能（mp3, opus, aac, flac, wav, pcm）。
-# ・オプションで音声に詳細な指示（instructions）を与えることが可能（モデルに制約あり）
-# --------------------------------------
-# ② Speech to Text
-# --------------------------------------
-#
-# --------------------------------------
-# ③ 音声翻訳API（Translation）
-# --------------------------------------
-# （1）APIの仕様、役割、特徴
-# URL: POST https://api.openai.com/v1/audio/translations
-# 役割: 入力した音声を英語に翻訳し、テキストに変換（Speech Translation）
-# --------------------------------------
-# 特徴
-# --------------------------------------
-# ・対応モデル：whisper-1（Whisper V2をベースにしたモデル）
-# ・音声ファイルフォーマット：flac, mp3, mp4, mpeg, mpg, m4a, ogg, wav, webm
-# ・応答形式の指定可能（json, text, srt, verbose_json, vtt）
-# ・promptにより翻訳スタイルを誘導可能
-# ・温度（temperature）で翻訳結果のランダム性調整可能
-# --------------------------------------
-# ④ RealtimeAPIで音声⇄音声（低遅延対話）
-# --------------------------------------
-# ポイント
-# ・トークン を取得 →client.beta.realtime.transcription_sessions.create()
-# ・WebSocket へ接続し JSON イベントを送受信
-# ・PCM16kHz/24kHz の Base64 チャンクを input_audio_buffer.append で送る
-# 最小構成例（送信のみ）:
-# --------------------------------------
-# ⑤「Chained」型 VoiceAgent（制御＋ログ重視）
-# --------------------------------------
-# ・マイク → transcribe
-# ・テキストを GPT‑4o へプロンプト
-# ・応答テキストを TTS で音声化
-# ・スピーカーへ
-# ーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
 import os
 import sys
 import asyncio
 import base64
-import json
 from io import BytesIO
 from pathlib import Path
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 )
+
 from a0_common_helper.helper import (
     init_page,
     init_messages,
-    select_model,
     sanitize_key,
     get_default_messages,
-    extract_text_from_response, append_user_message,
     select_speech_model, select_whisper_model,
-    parse_translation_response,
 )
+
 from openai import OpenAI, AsyncOpenAI
-from openai.types.responses import (
-    EasyInputMessageParam,      # 基本の入力メッセージ
-    ResponseInputTextParam,     # 入力テキスト
-    ResponseInputImageParam,    # 入力画像
-    ResponseFormatTextJSONSchemaConfigParam,  # Structured output 用
-    ResponseTextConfigParam,    # Structured output 用
-    FunctionToolParam,          # 関数呼び出しツール
-    FileSearchToolParam,        # ファイル検索ツール
-    WebSearchToolParam,         # Web 検索ツール
-    ComputerToolParam,          #
-    Response
+from openai.types.chat import (
+    ChatCompletionSystemMessageParam,
+    ChatCompletionUserMessageParam,
+    ChatCompletionAssistantMessageParam,
+    ChatCompletionMessageParam,  # ← union 型
 )
 # --- インポート直後に１度だけ実行する ---
 import streamlit as st
@@ -97,16 +45,6 @@ asyn_client = AsyncOpenAI()             # 非同期クライアント（Realtime
 BASE_DIR = Path(__file__).resolve().parent.parent      # resolve() で実体パス
 DATA_DIR = BASE_DIR / "data"
 init_page("Audio & Speech Demo")
-
-# [Menu]--------------------------------------------------------------
-# 基本：
-# パイプライン	モデル	                理由
-# 01 音声入力	    whisper-turbo	        0.3 秒以内の低遅延·低コスト
-# 02 会話生成	    GPT-4o mini(stream)     十分高精度・革命的コスパ
-# 03 音声出力	    tts-1(chunk_size≈150字)	最短 TTFB；発熱の少ない M-series Mac でも安定
-# 04 ターン検出	    server-VAD Silence      自動判定で自然な割り込み体験
-# ------------------------------------------------------------------
-
 # ------------------------------------------------------------------
 # ① Text → Speech
 # gpt-4o-mini-tts: GPT-4o miniを搭載したテキスト読み上げモデル
@@ -132,6 +70,7 @@ def text_to_speech(_: str | None = None) -> None:
     text = txt_file.read_text(encoding="utf-8")  # 以降は従来ロジック
 
     # UI
+    st.write("tts-1 or tts-1-hd or gpt-4o-mini-tts のいずれかを選んで")
     model = select_speech_model()
     voice  = st.selectbox("Voice", ["alloy", "nova", "echo", "onyx", "shimmer"])
     stream = st.checkbox("ストリーミング (chunk 転送)")
@@ -186,15 +125,14 @@ def speech_to_text(_: str | None = None) -> None:
 # ------------------------------------------------------------------
 # ③ Speech → 英語 Text  ★ボタン押下で進行版
 # ------------------------------------------------------------------
-from openai import APITimeoutError, InternalServerError
+from openai import InternalServerError
 import time, random
-from openai import OpenAI, AsyncOpenAI
 
 def safe_transcribe(file_handle, model="whisper-1"):
     delay = 1
     for _ in range(4):          # 最大 4 回
         try:
-            client = OpenAI()
+
             return client.audio.transcriptions.create(
                 model=model, file=file_handle, response_format="text"
             )
@@ -233,70 +171,77 @@ def speech_to_transcription(_: str | None = None) -> None:
         st.write(st.session_state[key_tx])  # ← 警告解消
 
 # ------------------------------------------------------------------
-# ④ Realtime API (β)
+# ④ Realtime API (β)  –  SDK v1.86.0 対応版
 # ------------------------------------------------------------------
+# ChatCompletionSystemMessageParamで返す。
+def build_messages(user_text: str) -> list[ChatCompletionMessageParam]:
+    """ChatCompletion 用のメッセージを生成（型安全版）"""
+    return [
+        ChatCompletionSystemMessageParam(
+            role="system",
+            content=(
+                "You are a friendly Japanese voice assistant. "
+                "Respond in concise Japanese (≤2 sentences)."
+            ),
+        ),
+        ChatCompletionUserMessageParam(
+            role="user",
+            content=user_text,
+        ),
+    ]
+
 def realtime_api(_: str | None = None) -> None:
     try:
-        import pyaudio, websockets  # noqa: F401
+        import pyaudio, simpleaudio  # noqa: F401
     except ImportError as e:
-        st.error(f"{e}. `pip install pyaudio websockets` が必要です")
+        st.error(f"{e}. `pip install pyaudio simpleaudio` が必要です")
         return
 
     async def run_realtime() -> None:
-        sess = await asyn_client.realtime.transcription_sessions.create(
-            input_audio_format="pcm16",
-            input_audio_transcription={"model": "gpt-4o-transcribe"},
-        )
-        token = sess.client_secret
-        ws_url = (
-            "wss://api.openai.com/v1/realtime"
-            "?model=gpt-4o-realtime-preview&intent=conversation"
-        )
+        async_client = AsyncOpenAI()
 
-        import pyaudio, websockets  # local scope
-        pa = pyaudio.PyAudio()
-        stream = pa.open(
-            format=pyaudio.paInt16,
-            channels=1,
-            rate=16000,
-            input=True,
-            frames_per_buffer=1024,
-        )
+        # --- Realtime WebSocket 接続 ---------------------------------
+        async with async_client.beta.realtime.connect(
+            model="gpt-4o-realtime-preview",
+            # extra_query={"intent": "conversation",
+        ) as conn:
 
-        async with websockets.connect(
-            ws_url,
-            extra_headers={
-                "Authorization": f"Bearer {token}",
-                "OpenAI-Beta": "realtime=v1",
-            },
-        ) as ws:
-
-            # handshake
-            await ws.send(
-                json.dumps(
-                    {"type": "session.update", "session": {"turn_detection": {"type": "server_vad"}}}
-                )
+            # --- セッション初期化（VAD + Whisper モデル指定） ----------
+            await conn.session.update(
+                session={
+                    "voice": "alloy",
+                    "input_audio_format": "pcm16",
+                    "input_audio_transcription": {"model": "gpt-4o-transcribe"},
+                    "turn_detection": {"type": "server_vad"},
+                }
             )
 
+            # --- マイク設定 -------------------------------------------
+            import pyaudio, simpleaudio
+            pa = pyaudio.PyAudio()
+            stream = pa.open(
+                format=pyaudio.paInt16,
+                channels=1,
+                rate=16_000,
+                input=True,
+                frames_per_buffer=1024,
+            )
+
+            # --- 並列タスク -------------------------------------------
             async def sender():
                 while True:
-                    data = stream.read(1024, exception_on_overflow=False)
-                    await ws.send(
-                        json.dumps(
-                            {
-                                "type": "input_audio_buffer.append",
-                                "audio": base64.b64encode(data).decode(),
-                            }
-                        )
+                    pcm = stream.read(1024, exception_on_overflow=False)
+                    await conn.input_audio_buffer.append(
+                        audio=base64.b64encode(pcm).decode()
                     )
 
             async def receiver():
-                import simpleaudio  # 任意再生ライブラリ
-                async for msg in ws:
-                    evt = json.loads(msg)
-                    if evt.get("type") == "response.audio.delta":
-                        wav = base64.b64decode(evt["audio"])
-                        simpleaudio.play_buffer(wav, 1, 2, 24000)
+                async for event in conn:
+                    if event.type == "response.audio.delta":
+                        wav = base64.b64decode(event.audio)
+                        simpleaudio.play_buffer(wav, 1, 2, 24_000)
+                    elif event.type == "response.done":
+                        break  # 会話終了
 
             await asyncio.gather(sender(), receiver())
 
@@ -304,9 +249,24 @@ def realtime_api(_: str | None = None) -> None:
     if st.button("Run Realtime Demo"):
         asyncio.run(run_realtime())
 
-# ------------------------------------------------------------------
+# =================================================================
 # ⑤ 「Chained」VoiceAgent
-# ------------------------------------------------------------------
+# =================================================================
+# 概要
+# Streamlit ウィジェット st.file_uploader で最大 25 MB の WAV/MP3 を受け取り、
+# 音声バイト列を voice_agent_chunk() に渡して処理結果（MP3 バイト列）を
+# st.audio で再生する UI レイヤ です。ブラウザ側での可搬性と即時プレビューを実現します。
+# ========================
+# IPO
+# 区分	        内容
+# I (Input)	    ユーザー操作：st.file_uploader でアップロードされた WAV/MP3 ファイル（≤ 25 MB）
+# P (Process)	1. UI 表示（タイトル等）
+#               2. ファイル存在チェック（if not uploaded: return）
+#               3. uploaded.read() でバイト列取得
+#               4. voice_agent_chunk() 呼び出し
+# O (Output)	ブラウザ出力：st.audio(resp_audio, format="audio/mp3") による音声プレーヤー埋め込み
+# ========================
+
 def chained_voice_agent(_: str | None = None) -> None:
     st.write("### 1 回発話→応答のデモ")
     uploaded = st.file_uploader("あなたの音声 (WAV/MP3 ≤25 MB)", type=["wav", "mp3"])
@@ -316,10 +276,29 @@ def chained_voice_agent(_: str | None = None) -> None:
     resp_audio = voice_agent_chunk(uploaded.read())
     st.audio(resp_audio, format="audio/mp3")
 
+# ========================
+# 概要
+# 1 本の音声バイト列を入力とし、Speech-to-Text → Chat Completion → Text-to-Speech を順に実行して MP3 バイト列を返します。主要コンポーネントは以下の通り。
+#
+# ステップ	API / モデル	主な役割
+# ① STT	audio.transcriptions.create() + Whisper 系（whisper-1, gpt-4o-transcribe など）で日本語音声→テキスト化
+# ② Chat	chat.completions.create() + gpt-4o-mini で対話応答生成
+# ③ TTS	audio.speech.create() + tts-1 でテキスト→音声変換
+# IPO
+# 区分	        内容
+# I (Input)	    binary_wav: bytes – WAV/MP3 の生バイト列（BytesIO で STT に渡す）
+# P (Process)	1. 音声認識: client.audio.transcriptions.create(model=audio_model)
+#　　　　　　　　　　　で Whisper 文字起こし
+#               2. プロンプト生成: ChatCompletionSystemMessageParamと
+#               　　ChatCompletionUserMessageParam でメッセージ配列構築
+#               3. 対話生成: client.chat.completions.create(model="gpt-4o-mini") で応答テキスト取得
+#               4. TTS: client.audio.speech.create(model="tts-1") で MP3 バイト列生成
+# O (Output)	bytes – エンコーディング済み MP3（呼び出し元で st.audio 再生）
 
 # voice_agent_chunk ---------------------------------------------------
 def voice_agent_chunk(binary_wav: bytes) -> bytes:
-    audio_model = select_whisper_model()
+    # ① 音声 → 文字起こし（Whisper 系モデル）
+    audio_model = select_whisper_model()                      # whisper-1 / gpt-4o-transcribe 等
     res = client.audio.transcriptions.create(
         model=audio_model,
         file=BytesIO(binary_wav),
@@ -327,27 +306,33 @@ def voice_agent_chunk(binary_wav: bytes) -> bytes:
     )
     user_text = getattr(res, "output_text", str(res))
 
-    messages = get_default_messages()
-    messages.append(
-        EasyInputMessageParam(
-            role="user",
-            content=[
-                ResponseInputTextParam(type="input_text", text=user_text),
-            ],
+    # ② ChatCompletion 用メッセージを構築
+    chat_messages: list[ChatCompletionMessageParam] = [
+        ChatCompletionSystemMessageParam(
+            role="system",
+            content=(
+                "You are a friendly Japanese voice assistant. "
+                "Respond in concise Japanese (≤2 sentences)."
+            ),
         ),
-    )
-    chat = client.chat.completions.create(
-        model=audio_model,
-        messages=messages,
-    )
-    assistant_text = chat.choices[0].message.content
+        ChatCompletionUserMessageParam(role="user", content=user_text),
+    ]
 
-    tts = client.audio.speech.create(
+    # ③ テキスト生成（Chat 用モデルを指定）
+    chat_model = "gpt-4o-mini"                                # チャットモデル
+    chat_resp = client.chat.completions.create(
+        model=chat_model,
+        messages=chat_messages,
+    )
+    assistant_text = chat_resp.choices[0].message.content
+
+    # ④ TTS で音声化
+    tts_resp = client.audio.speech.create(
         model="tts-1",
         voice="alloy",
         input=assistant_text,
     )
-    return tts.content
+    return tts_resp.content
 
 # ------------------------------------------------------------------ Streamlit menu
 def main() -> None:
@@ -357,7 +342,7 @@ def main() -> None:
         "2_speech_to_text": speech_to_text,
         "3_speech_to_transcription": speech_to_transcription,
         "4_realtime_api": realtime_api,
-        "5_voice_agent_chunk": chained_voice_agent,
+        "5_chained_voice_agent": chained_voice_agent,
     }
     choice = st.sidebar.radio("デモを選択してください", list(demos.keys()))
     demos[choice](choice)

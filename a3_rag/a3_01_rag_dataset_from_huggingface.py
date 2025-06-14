@@ -1,4 +1,4 @@
-# a3_01_rag_simple.py
+# python a3_01_rag_dataset_from_huggingface.py
 # 下記コードは、ノイズが大きい。 ---> 09_01_rag_
 # --------------------------------------------------
 # ① カスタマーサポート・FAQデータセット   推奨データセット： Amazon_Polarity
@@ -8,6 +8,9 @@
 # ⑤ 法律・判例QAデータセット             推奨データセット： nguha/legalbench
 # --------------------------------------------------
 # 1. いま得られている結果をどう評価するか？
+# - 多くの RAG ワークフローでは 要点抽出または除外 が推奨です。
+#    CoT を保持しておきたい場合は “raw_cot” を別フィールドとしてストレージに保存し、
+#    検索ヒット後に参照すると良いでしょう。
 # --------------------------------------------------
 # 観点	            評価
 # 検索自体のヒット	    上位 0.746 のチャンク内に「返品ポリシーを教えてください。」
@@ -82,13 +85,13 @@ def download_dataset():
 
     print("\n[OK] All datasets downloaded & saved.")
 
-
-def set_dataset(csv_path):
-    client = OpenAI()
-    CSV_PATH = "data/customer_support_faq_jp.csv"
-
+# ----------------------------------------------------
+# 1. Customer Support FAQs/ FAQ型のデータ：
+#    前処理：「Q: … A: …」形式へ変換
+# ----------------------------------------------------
+def set_dataset_to_qa(csv_path):
     # 「Q: … A: …」形式へ変換し一時ファイルに書き出し
-    df = pd.read_csv(CSV_PATH)
+    df = pd.read_csv(csv_path)
 
     tmp_txt = tempfile.NamedTemporaryFile(delete=False, suffix=".txt")
     with open(tmp_txt.name, "w", encoding="utf-8") as f:
@@ -101,46 +104,77 @@ def set_dataset(csv_path):
     return tmp_txt.name
 
 def create_vector_store_and_upload(name, tmp_txt_path):
-    # 3-1 Vector Store 作成
+    # 1) Vector Store 作成
     client = OpenAI()
     vs = client.vector_stores.create(name=name)
-    VS_ID = vs.id
 
-    # 3-2) ファイルを作成済み Vector Store に添付
+    # 2) ファイルを作成済み Vector Store に添付
     file_obj = client.files.create(file=open(tmp_txt_path, "rb"), purpose="assistants")
-    client.vector_stores.files.create(vector_store_id=VS_ID, file_id=file_obj.id)
+    client.vector_stores.files.create(vector_store_id=vs.id, file_id=file_obj.id)
 
-    # 3-3) （任意）インデックス完了をポーリング
+    # 3) （任意）インデックス完了をポーリング
     import time
     while True:
-        status = client.vector_stores.retrieve(VS_ID).status
+        status = client.vector_stores.retrieve(vs.id).status
         if status == "completed": break
         time.sleep(2)
-    print("Vector Store ready:", VS_ID)
-    return VS_ID
+    print("Vector Store ready:", vs.id)
+    return vs.id
 
 def standalone_search(vs_id):
-    VS_ID = vs_id
     print("vs_id=:", vs_id)
-    query = "返品ポリシーを教えてください。"  # "返品は何日以内？"
+    query = "What is your return policy? "
     client = OpenAI()
     # max_num_results が正式な引数名
     results = client.vector_stores.search(
-        vector_store_id = VS_ID,
+        vector_store_id = vs_id,
         query = query,
         max_num_results = 3,  # 1~50
     )
     for r in results.data:
         print(f"{r.score:.3f}", r.content[0].text.strip())  # [:60], "...")
 
+# ----------------------------------------------------
+# 2. Legal QA — *consumer_contracts_qa
+#    前処理：
+# ----------------------------------------------------
+def set_dataset_02(csv_path):
+    pass
+
+# ----------------------------------------------------
+# 3. Medical QA — *medical-o1-reasoning-SFT
+#    前処理：
+# ----------------------------------------------------
+def set_dataset_03(csv_path):
+    pass
+
+# ----------------------------------------------------
+# 4. SciQ — Science MCQ
+#    前処理：
+# ----------------------------------------------------
+def set_dataset_04(csv_path):
+    pass
+
+# ----------------------------------------------------
+# 5. Trivia QA — *rc*（Reading Comprehension）
+#    前処理：
+# ----------------------------------------------------
+def set_dataset_05(csv_path):
+    pass
+
+# ----------------------------------------------------
 def main():
     # download_dataset()
-    # csv_path = "data/customer_support_faq_jp.csv"
-    # tmp_text = set_dataset(csv_path)
-    # name = "customer_support_faq_jp"
-    # vs_id = create_vector_store_and_upload(name, tmp_text)
-    vs_id = 'vs_68345a403a548191817b3da8404e2d82'
-    standalone_search(vs_id)
+    # ----------------------------------------------------
+    # 1. Customer Support FAQs/ FAQ型のデータ：
+    # ----------------------------------------------------
+    csv_path = "datasets/customer_support_faq.csv"
+    tmp_text = set_dataset_to_qa(csv_path)
+    name = "customer_support_faq"
+    vs_id = create_vector_store_and_upload(name, tmp_text)
+    print(vs_id)
+    # vs_id = 'vs_68345a403a548191817b3da8404e2d82'
+    # standalone_search(vs_id)
 
 if __name__ == "__main__":
     main()

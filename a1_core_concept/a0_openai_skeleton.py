@@ -1,6 +1,7 @@
 # [Usage] streamlit run a0_openai_skeleton.py --server.port 8501
 # ----------------------------------------
 # サンプルプログラム作成用のスケルトン
+# !!![OpenAi-APIは、messages に厳密型を要求することに起因します]
 # ----------------------------------------
 import os
 import sys

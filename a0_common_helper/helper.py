@@ -10,6 +10,9 @@ from openai.types.responses import EasyInputMessageParam, ResponseInputTextParam
     ResponseTextConfigParam, ResponseFormatTextJSONSchemaConfigParam, FunctionToolParam, FileSearchToolParam, \
     ComputerToolParam
 
+# -----------------------------------------------
+# chat completions用　2025-06-11 将来的に非推奨
+# -----------------------------------------------
 from openai.types.responses import (
     EasyInputMessageParam,      # 基本の入力メッセージ
     ResponseInputTextParam,     # 入力テキスト
@@ -23,28 +26,48 @@ from openai.types.responses import (
     # ChatCompletionMessageParam,
     Response
 )
+from openai.types.chat import (
+    ChatCompletionSystemMessageParam,
+    ChatCompletionUserMessageParam,
+    ChatCompletionAssistantMessageParam,
+    ChatCompletionMessageParam,  # ← union 型
+)
+chat_completions_system_text = 'You are a helpful Japanese voice assistant.'
+def build_user_messages(user_text: str) -> list[ChatCompletionMessageParam]:
+    return [
+        ChatCompletionSystemMessageParam(
+            role="system",
+            content=chat_completions_system_text
+        ),
+        ChatCompletionUserMessageParam(
+            role="user",
+            content=user_text
+        ),
+    ]
 
 # --------------------------------------------------
-# デフォルトプロンプト　（例）ソフトウェア開発用
+# デフォルトプロンプト　responses-API（例）ソフトウェア開発用
 # --------------------------------------------------
+developer_text = (
+    "You are a strong developer and good at teaching software developer professionals "
+    "please provide an up-to-date, informed overview of the API by function, then show "
+    "cookbook programs for each, and explain the API options."
+    "あなたは強力な開発者でありソフトウェア開発者の専門家に教えるのが得意です。"
+    "OpenAIのAPIを機能別に最新かつ詳細に説明してください。"
+    "それぞれのAPIのサンプルプログラムを示しAPIのオプションについて説明してください。"
+)
+user_text = (
+    "Organize and identify the problem and list the issues. "
+    "Then, provide a solution procedure for the issues you have organized and identified, "
+    "and solve the problems/issues according to the solution procedures."
+    "不具合、問題を特定し、整理して箇条書きで列挙・説明してください。"
+    "次に、整理・特定した問題点の解決手順を示しなさい。"
+    "次に、解決手順に従って問題・課題を解決してください。"
+)
+assistant_text = "OpenAIのAPIを使用するには、公式openaiライブラリが便利です。回答は日本語で"
+
+
 def get_default_messages() -> list[EasyInputMessageParam]:
-    developer_text = (
-        "You are a strong developer and good at teaching software developer professionals "
-        "please provide an up-to-date, informed overview of the API by function, then show "
-        "cookbook programs for each, and explain the API options."
-        "あなたは強力な開発者でありソフトウェア開発者の専門家に教えるのが得意です。"
-        "OpenAIのAPIを機能別に最新かつ詳細に説明してください。"
-        "それぞれのAPIのサンプルプログラムを示しAPIのオプションについて説明してください。"
-    )
-    user_text = (
-        "Organize and identify the problem and list the issues. "
-        "Then, provide a solution procedure for the issues you have organized and identified, "
-        "and solve the problems/issues according to the solution procedures."
-        "不具合、問題を特定し、整理して箇条書きで列挙・説明してください。"
-        "次に、整理・特定した問題点の解決手順を示しなさい。"
-        "次に、解決手順に従って問題・課題を解決してください。"
-    )
-    assistant_text = "OpenAIのAPIを使用するには、公式openaiライブラリが便利です。回答は日本語で"
 
     return [
     EasyInputMessageParam(role="developer", content=developer_text),
@@ -52,39 +75,29 @@ def get_default_messages() -> list[EasyInputMessageParam]:
     EasyInputMessageParam(role="assistant", content=assistant_text),
 ]
 
-def append_user_message(append_text):
-    messages = get_default_messages()
-    return messages.append(
-        EasyInputMessageParam(
-            role="user",
-            content=[
-                ResponseInputTextParam(type="input_text", text=append_text),
-            ],
-        )
-    )
+def append_user_message(append_text, image_url=None):
+    return [
+    EasyInputMessageParam(role="developer", content=developer_text),
+    EasyInputMessageParam(role="user",      content=user_text),
+    EasyInputMessageParam(role="assistant", content=assistant_text),
+    EasyInputMessageParam(role="user", content=append_text),
+]
 
 def append_developer_message(append_text):
-    messages = get_default_messages()
-    messages.append(
-        EasyInputMessageParam(
-            role="developer",
-            content=[
-                ResponseInputTextParam(type="input_text", text=append_text),
-            ]
-        )
-    )
+    return [
+    EasyInputMessageParam(role="developer", content=developer_text),
+    EasyInputMessageParam(role="user",      content=user_text),
+    EasyInputMessageParam(role="assistant", content=assistant_text),
+    EasyInputMessageParam(role="developer", content=append_text),
+]
 
 def append_assistant_message(append_text):
-    messages = get_default_messages()
-    messages = messages.append(
-        EasyInputMessageParam(
-            role="assistant",
-            content=[
-                ResponseInputTextParam(type="input_text", text=append_text),
-            ]
-        )
-    )
-    return messages
+    return [
+        EasyInputMessageParam(role="developer", content=developer_text),
+        EasyInputMessageParam(role="user", content=user_text),
+        EasyInputMessageParam(role="assistant", content=assistant_text),
+        EasyInputMessageParam(role="assistant", content=append_text),
+    ]
 
 # ------------------------------------------
 # https://github.com/openai/tiktoken/blob/main/README.md
@@ -261,7 +274,6 @@ def get_default_speech_text_message() -> list[EasyInputMessageParam]:
 # client.responses.parse 出力の解析
 # --------------------------------------
 # print(response.output_text)
-
 
 import json
 
