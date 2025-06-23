@@ -1,0 +1,46 @@
+# config/config_test.yaml 作成
+cat > config/config_test.yaml << 'EOF'
+models:
+  default: "gpt-4o-mini"
+  available:
+    - "gpt-4o-mini"
+    - "gpt-4o"
+
+api:
+  timeout: 10
+  max_retries: 2
+
+ui:
+  page_title: "Test OpenAI API Demo"
+  layout: "wide"
+  message_display_limit: 10
+
+app:
+  demo_categories:
+    - name: "基本機能"
+      demos: ["simple_chat", "token_counter"]
+    - name: "応用機能"
+      demos: ["structured_output"]
+
+  demo_titles:
+    simple_chat: "テストチャット"
+    structured_output: "テスト構造化出力"
+    token_counter: "テストトークンカウンター"
+
+experimental:
+  debug_mode: true
+  performance_monitoring: true
+
+cache:
+  enabled: false
+  ttl: 60
+  max_size: 10
+
+model_pricing:
+  gpt-4o-mini:
+    input: 0.00015
+    output: 0.0006
+  gpt-4o:
+    input: 0.005
+    output: 0.015
+EOF

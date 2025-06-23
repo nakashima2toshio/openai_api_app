@@ -4,12 +4,12 @@
 # !!![OpenAi-APIは、messages に厳密型を要求することに起因します]
 # ----------------------------------------
 import os
-import sys
-# a0_common_helper が同じリポジトリ内の上位ディレクトリにあるため、
-# Python のモジュール検索パスに親ディレクトリを追加する
-sys.path.insert(
-    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-)
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+THIS_DIR = Path(__file__).resolve().parent
+DATASETS_DIR = os.path.join(BASE_DIR, 'datasets')
+HELPER_DIR = os.path.join(BASE_DIR, 'a0_common_helper')
 
 from a0_common_helper.helper import (
     init_page,
@@ -26,7 +26,7 @@ from openai.types.responses import EasyInputMessageParam
 import streamlit as st
 st.set_page_config(
     page_title="ChatGPT API",
-    page_icon="2025-5 Nakashima"
+    page_icon="2025-6 Nakashima"
 )
 # -----------------------------------------------
 # テキスト入出力 (One Shot):responses.create
@@ -69,14 +69,18 @@ def sample2(demo_name: str = "sample2"):
 # メインルーティン
 # ==================================================
 def main() -> None:
-    init_page("skeleton")
-    page_funcs = {
-        "OpenAI-API Responses(One Shot)": responses_create_sample,
-        "sample2": sample2,
-    }
-    demo_name = st.sidebar.radio("デモを選択", list(page_funcs.keys()))
-    st.session_state.current_demo = demo_name
-    page_funcs[demo_name](demo_name)
+    # init_page("skeleton")
+    # page_funcs = {
+    #     "OpenAI-API Responses(One Shot)": responses_create_sample,
+    #     "sample2": sample2,
+    # }
+    # demo_name = st.sidebar.radio("デモを選択", list(page_funcs.keys()))
+    # st.session_state.current_demo = demo_name
+    # page_funcs[demo_name](demo_name)
+    print('---------------')
+    print(BASE_DIR)
+    print(DATASETS_DIR)
+    print(HELPER_DIR)
 
 if __name__ == "__main__":
     main()

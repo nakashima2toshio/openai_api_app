@@ -57,9 +57,9 @@ def main():
         )
 
         # Arrow 形式 → data/<name>
-        arrow_path = DATA_DIR / d["name"]
-        ds.save_to_disk(arrow_path)
-        print(f"  saved dataset ➜ {arrow_path}")
+        # arrow_path = DATA_DIR / d["name"]
+        # ds.save_to_disk(arrow_path)
+        # print(f"  saved dataset ➜ {arrow_path}")
 
         # CSV 形式 → data/<name>.csv
         csv_path = DATA_DIR / f"{d['name']}.csv"

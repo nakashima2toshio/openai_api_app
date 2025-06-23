@@ -1,14 +1,20 @@
-# [Usage] streamlit run a00_openai_skeleton.py --server.port 8501
+# [Usage] streamlit run a00_skeleton.py --server.port 8501
 # ----------------------------------------
 # サンプルプログラム作成用のスケルトン
 # ----------------------------------------
 import os
 import sys
-# a0_common_helper が同じリポジトリ内の上位ディレクトリにあるため、
-# Python のモジュール検索パスに親ディレクトリを追加する
-sys.path.insert(
-    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-)
+from openai import OpenAI
+from pathlib import Path
+
+# プロジェクトルートをPYTHONPATHに追加
+BASE_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(BASE_DIR))
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+THIS_DIR = Path(__file__).resolve().parent
+DATASETS_DIR = os.path.join(BASE_DIR, 'datasets')
+HELPER_DIR = os.path.join(BASE_DIR, 'a0_common_helper')
 
 from a0_common_helper.helper import (
     init_page,
@@ -19,7 +25,6 @@ from a0_common_helper.helper import (
     extract_text_from_response, append_user_message,
 )
 
-from openai import OpenAI
 from openai.types.responses import EasyInputMessageParam
 # --- インポート直後に１度だけ実行する ---
 import streamlit as st

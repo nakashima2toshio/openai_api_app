@@ -1,0 +1,29 @@
+# 基本テスト
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.1
+pytest-asyncio>=0.21.1
+
+# Streamlitテスト（実在するパッケージ）
+selenium>=4.15.0
+webdriver-manager>=4.0.0
+
+# APIモック
+responses>=0.23.3
+requests-mock>=1.11.0
+
+# 日時モック
+freezegun>=1.2.2
+
+# パフォーマンステスト
+pytest-benchmark>=4.0.0
+memory-profiler>=0.60.0
+
+# コード品質
+flake8>=6.0.0
+black>=23.0.0
+mypy>=1.5.0
+
+# 追加ユーティリティ
+psutil>=5.9.0
+timeout-decorator>=0.5.0

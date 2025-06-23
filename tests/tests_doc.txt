@@ -1,0 +1,146 @@
+#
+### 📋 2.1 テストファイル構成
+# ------------------------------------------------
+| ファイル | 対象 | 内容 |
+|----------|------|------|
+| `tests/conftest.py` | 共通設定 | fixtureやpytest設定 |
+| `tests/test_helper.py` | helper.py | 各クラス・関数の単体テスト |
+| `tests/test_skeleton.py` | a10_00_openai_skeleton.py | メインアプリのテスト |
+| `tests/test_integration.py` | 連携テスト | API連携・E2Eテスト |
+| `tests/test_ui.py` | UIテスト | Streamlit UI動作テスト |
+| `tests/fixtures/` | テストデータ | モックデータ・サンプル |
+
+# ------------------------------------------------
+tests/
+├── conftest.py              # pytest共通設定
+├── test_basic.py            # 最優先の基本テスト
+├── test_stage1_existence.py # ファイル存在・インポート
+├── test_stage2_helper.py    # helper.pyロジック
+├── test_stage3_skeleton.py  # skeleton.pyロジック
+├── fixtures/                # テストデータ
+│   ├── mock_responses.py    # APIモックデータ
+│   └── test_data.py         # サンプルテストデータ
+└── utils/                   # テストユーティリティ
+    └── test_helpers.py      # テスト用補助関数
+
+# ------------------------------------------------
+解説の特徴
+📚 構造化された学習アプローチ
+# ------------------------------------------------
+
+目的と戦略 → なぜテストが必要か
+ファイル構成 → どのようにテストを組織化するか
+実装詳細 → 実際のコード例
+実行・確認 → どのように動かすか
+トラブルシューティング → 問題への対処法
+
+💡 実用的なポイント
+🔧 即座に使える実装
+
+コピペ可能な完全なコード例
+conftest.py: pytest設定とfixture
+test_basic.py: 最優先の基本テスト
+段階的テスト: 環境→インポート→機能→統合
+
+🛡️ 堅牢なエラーハンドリング
+
+よくある問題の事前対策
+デバッグ用テストの提供
+
+# ------------------------------------------------
+pytest実行
+bash# pytest実行（詳細表示）
+pytest tests/test_basic.py -v -s
+
+# 出力のみ表示
+pytest tests/test_basic.py -v -s --tb=short
+
+# 失敗時の詳細表示
+pytest tests/test_basic.py -v -s --tb=long
+📊 3.4.2 期待される結果
+✅ 成功パターン
+🧪 基本動作確認テスト開始
+==================================================
+
+📋 TestEnvironment 実行中...
+✅ Python バージョン: 3.11.5 (main, ...)
+✅ ファイル存在確認: a10_00_openai_skeleton.py
+✅ ファイル存在確認: helper.py
+✅ ファイル存在確認: config.yaml
+✅ モジュール確認: streamlit
+✅ モジュール確認: openai
+✅ モジュール確認: tiktoken
+✅ モジュール確認: yaml
+  ✅ test_python_version: PASSED
+  ✅ test_project_structure: PASSED
+  ✅ test_dependencies: PASSED
+
+📋 TestBasicImports 実行中...
+✅ クラス確認: ConfigManager
+✅ クラス確認: MessageManager
+✅ クラス確認: TokenManager
+✅ クラス確認: UIHelper
+✅ クラス確認: ResponseProcessor
+✅ クラス確認: DemoBase
+  ✅ test_import_helper: PASSED
+...
+
+🎯 テスト結果: 12/12 PASSED
+🎉 全ての基本テストが成功しました！
+❌ 失敗パターンと対処法
+エラー内容原因対処法FileNotFoundError: helper.pyファイルが存在しないファイルパス確認、作業ディレクトリ確認ImportError: No module named 'openai'依存関係未インストールpip install openaiAttributeError: 'module' has no attribute 'ConfigManager'クラス定義エラーhelper.py の構文確認YAML parsing errorconfig.yaml構文エラーYAML構文確認
+
+🛠️ 3.5 トラブルシューティング
+🔧 3.5.1 よくある問題と解決法
+
+# --------------------------------------------
+問題1: モジュールインポートエラー
+python# エラー例
+ImportError: No module named 'helper'
+
+# 解決法
+import sys
+from pathlib import Path
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+print(f"プロジェクトパス: {PROJECT_ROOT}")
+
+# --------------------------------------------
+問題2: Streamlit依存エラー
+python# エラー例
+ImportError: No module named 'streamlit'
+
+# 解決法（一時的スキップ）
+try:
+    import streamlit as st
+except ImportError:
+    print("⚠️ Streamlitが見つかりません。モック使用でテスト続行...")
+    import sys
+    from unittest.mock import MagicMock
+    sys.modules['streamlit'] = MagicMock()
+
+# --------------------------------------------
+問題3: 設定ファイル読み込みエラー
+python# エラー例
+FileNotFoundError: config.yaml
+
+# 解決法
+import os
+from pathlib import Path
+
+# 設定ファイル検索
+possible_paths = [
+    "config.yaml",
+    "../config.yaml",
+    "./config.yaml"
+]
+
+config_path = None
+for path in possible_paths:
+    if Path(path).exists():
+        config_path = path
+        break
+
+if config_path is None:
+    print("⚠️ config.yaml が見つかりません。デフォルト設定使用...")
+

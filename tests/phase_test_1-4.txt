@@ -1,0 +1,41 @@
+Phase 1: 基本テスト環境確認
+bash# Phase 1: 基本動作確認
+echo "🧪 Phase 1: 基本テスト環境確認"
+
+# pytest動作確認
+pytest --version
+
+# 簡単なテスト実行
+python -c "
+import helper
+import a10_00_openai_skeleton
+print('✅ モジュールインポート: OK')
+"
+
+# 設定ファイル確認
+python -c "
+from helper import ConfigManager
+config = ConfigManager('config.yaml')
+print(f'✅ 設定読み込み: {config.get(\"models.default\")}')
+"
+Phase 2: ロジックテスト実行
+bash# Phase 2: ロジック部分のテスト
+echo "🧪 Phase 2: ロジックテスト"
+
+# helper.pyのロジックテスト
+pytest tests/test_helper.py -v --tb=short
+
+# 基本的な動作確認
+pytest tests/test_logic_only.py -v
+Phase 3: モックテスト実行
+bash# Phase 3: Streamlitモックテスト
+echo "🧪 Phase 3: モックテスト"
+
+# Streamlitをモックしたテスト
+pytest tests/test_streamlit_mock.py -v
+Phase 4: 総合テスト（オプション）
+bash# Phase 4: E2Eテスト（Seleniumが必要）
+echo "🧪 Phase 4: E2Eテスト"
+
+# E2Eテスト実行（時間がかかります）
+pytest tests/test_e2e.py -v -m e2e

@@ -31,7 +31,21 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="/datasets/customer_support_faq_2.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="/datasets/legal_qa.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/datasets/medical_qa.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />
